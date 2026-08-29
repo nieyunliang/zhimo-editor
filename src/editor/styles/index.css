@@ -1,0 +1,638 @@
+/*
+ * 知墨编辑器 · 样式入口
+ *
+ * 设计要点：
+ * 1. Tailwind v4 全部收进 `zhimo` 自定义 layer，preflight 与 utilities
+ *    优先级低于使用方 unlayered 样式，避免污染宿主页面。
+ * 2. 主题通过 `.zhimo-editor` 上的 CSS 变量（--zm-*）定制，使用方
+ *    覆盖变量即换肤。
+ * 3. 发布时由 @tailwindcss/cli 扫描本文件编译为 dist/zhimo-editor.css。
+ */
+@import "tailwindcss" layer(zhimo);
+
+.zhimo-editor {
+  /* ===== 主题变量（默认值，使用方可覆盖） ===== */
+  --zm-primary: #2563eb;
+  --zm-primary-hover: #1d4ed8;
+  --zm-primary-soft: #eff6ff;
+  --zm-text: #1f2329;
+  --zm-text-secondary: #646a73;
+  --zm-text-muted: #9ca3af;
+  --zm-border: #e5e7eb;
+  --zm-border-strong: #d1d5db;
+  --zm-bg: #ffffff;
+  --zm-bg-hover: #f3f4f6;
+  --zm-bg-active: #eef2ff;
+  --zm-danger: #dc2626;
+  --zm-radius: 8px;
+  --zm-font:
+    'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', system-ui,
+    -apple-system, sans-serif;
+  --zm-font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas,
+    'Liberation Mono', monospace;
+
+  /* ===== 组件外观 ===== */
+  font-family: var(--zm-font);
+  font-size: 15px;
+  color: var(--zm-text);
+  background: var(--zm-bg);
+  border: 1px solid var(--zm-border);
+  border-radius: var(--zm-radius);
+  line-height: 1.75;
+  text-align: left;
+}
+
+/* ===== 编辑区 ===== */
+.zhimo-editor .tiptap {
+  outline: none;
+  min-height: 240px;
+  padding: 16px 20px;
+  caret-color: var(--zm-primary);
+  word-break: break-word;
+}
+
+.zhimo-editor .tiptap > * + * {
+  margin-top: 0.6em;
+}
+
+.zhimo-editor .tiptap p {
+  margin: 0;
+}
+
+.zhimo-editor .tiptap h1,
+.zhimo-editor .tiptap h2,
+.zhimo-editor .tiptap h3 {
+  font-weight: 600;
+  line-height: 1.4;
+  margin-top: 1.2em;
+  margin-bottom: 0.4em;
+}
+
+.zhimo-editor .tiptap h1 {
+  font-size: 1.7em;
+}
+
+.zhimo-editor .tiptap h2 {
+  font-size: 1.4em;
+}
+
+.zhimo-editor .tiptap h3 {
+  font-size: 1.2em;
+}
+
+.zhimo-editor .tiptap ul,
+.zhimo-editor .tiptap ol {
+  padding-left: 1.5em;
+  margin: 0;
+}
+
+.zhimo-editor .tiptap li {
+  margin: 0.15em 0;
+}
+
+.zhimo-editor .tiptap li > p {
+  margin: 0;
+}
+
+.zhimo-editor .tiptap blockquote {
+  margin: 0;
+  border-left: 3px solid var(--zm-border-strong);
+  padding: 0.1em 0 0.1em 1em;
+  color: var(--zm-text-secondary);
+}
+
+.zhimo-editor .tiptap code {
+  font-family: var(--zm-font-mono);
+  font-size: 0.88em;
+  background: var(--zm-bg-hover);
+  border: 1px solid var(--zm-border);
+  border-radius: 4px;
+  padding: 0.1em 0.35em;
+  color: #d63384;
+}
+
+.zhimo-editor .tiptap pre {
+  background: #0f172a;
+  color: #e2e8f0;
+  border-radius: 6px;
+  padding: 12px 14px;
+  overflow-x: auto;
+  font-size: 0.9em;
+}
+
+.zhimo-editor .tiptap pre code {
+  background: transparent;
+  border: none;
+  color: inherit;
+  padding: 0;
+  font-size: inherit;
+}
+
+.zhimo-editor .tiptap hr {
+  border: none;
+  border-top: 1px solid var(--zm-border-strong);
+  margin: 1.5em 0;
+}
+
+.zhimo-editor .tiptap a {
+  color: var(--zm-primary);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.zhimo-editor .tiptap a:hover {
+  color: var(--zm-primary-hover);
+}
+
+.zhimo-editor .tiptap img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 0.5em 0;
+  border-radius: 6px;
+}
+
+.zhimo-editor .tiptap img.ProseMirror-selectednode {
+  outline: 2px solid var(--zm-primary);
+  outline-offset: 2px;
+}
+
+/* ===== 表格 ===== */
+.zhimo-editor .tiptap table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0.8em 0;
+  table-layout: fixed;
+  overflow: hidden;
+}
+
+.zhimo-editor .tiptap th,
+.zhimo-editor .tiptap td {
+  border: 1px solid var(--zm-border-strong);
+  padding: 6px 10px;
+  min-width: 40px;
+  vertical-align: top;
+  position: relative;
+}
+
+.zhimo-editor .tiptap th {
+  background: var(--zm-bg-hover);
+  font-weight: 600;
+}
+
+.zhimo-editor .tiptap .selectedCell::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--zm-primary-soft);
+  pointer-events: none;
+}
+
+.zhimo-editor .tiptap .column-resize-handle {
+  position: absolute;
+  right: -2px;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: var(--zm-primary);
+  pointer-events: none;
+}
+
+.zhimo-editor .tiptap .resize-cursor {
+  cursor: col-resize;
+}
+
+/* ===== 占位符（TipTap Placeholder 扩展） ===== */
+.zhimo-editor .tiptap p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: var(--zm-text-muted);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+
+/* ===== 禁用态 ===== */
+.zhimo-editor.is-disabled {
+  background: var(--zm-bg-hover);
+  cursor: not-allowed;
+}
+
+.zhimo-editor.is-disabled .tiptap {
+  opacity: 0.75;
+  user-select: none;
+}
+
+/* ===== 选中文本 ===== */
+.zhimo-editor .tiptap ::selection {
+  background: color-mix(in srgb, var(--zm-primary) 20%, transparent);
+}
+
+/* ===== 编辑中浮动元素通用 ===== */
+.zhimo-editor .zm-popover {
+  position: fixed;
+  z-index: 1000;
+  background: var(--zm-bg);
+  border: 1px solid var(--zm-border);
+  border-radius: var(--zm-radius);
+  box-shadow:
+    0 4px 16px rgba(15, 23, 42, 0.12),
+    0 1px 3px rgba(15, 23, 42, 0.08);
+}
+
+/* ===== 工具栏 ===== */
+.zhimo-editor .zm-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--zm-border);
+  user-select: none;
+}
+
+.zhimo-editor .zm-tool-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--zm-text-secondary);
+  cursor: pointer;
+  transition:
+    background-color 0.15s,
+    color 0.15s;
+}
+
+.zhimo-editor .zm-tool-btn:hover {
+  background: var(--zm-bg-hover);
+  color: var(--zm-text);
+}
+
+.zhimo-editor .zm-tool-btn[data-active='true'] {
+  background: var(--zm-bg-active);
+  color: var(--zm-primary);
+}
+
+.zhimo-editor .zm-tool-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  background: transparent;
+  color: var(--zm-text-secondary);
+}
+
+.zhimo-editor .zm-tool-btn::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-size: 12px;
+  line-height: 1;
+  color: #fff;
+  background: #1f2937;
+  border-radius: 4px;
+  padding: 5px 8px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.12s;
+  z-index: 10;
+}
+
+.zhimo-editor .zm-tool-btn:hover::after {
+  opacity: 1;
+}
+
+.zhimo-editor .zm-tool-divider {
+  width: 1px;
+  height: 18px;
+  background: var(--zm-border);
+  margin: 0 5px;
+}
+
+/* 段落格式下拉 */
+.zhimo-editor .zm-tool-select {
+  position: relative;
+}
+
+.zhimo-editor .zm-select-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 30px;
+  padding: 0 8px 0 10px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--zm-text);
+  font-size: 13px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.zhimo-editor .zm-select-trigger:hover {
+  background: var(--zm-bg-hover);
+}
+
+.zhimo-editor .zm-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  min-width: 140px;
+  padding: 4px;
+  background: var(--zm-bg);
+  border: 1px solid var(--zm-border);
+  border-radius: var(--zm-radius);
+  box-shadow:
+    0 4px 16px rgba(15, 23, 42, 0.12),
+    0 1px 3px rgba(15, 23, 42, 0.08);
+  z-index: 20;
+}
+
+.zhimo-editor .zm-dropdown-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+  border-radius: 4px;
+  padding: 6px 10px;
+  font-size: 13px;
+  font-family: inherit;
+  color: var(--zm-text);
+  cursor: pointer;
+}
+
+.zhimo-editor .zm-dropdown-item:hover {
+  background: var(--zm-bg-hover);
+}
+
+.zhimo-editor .zm-dropdown-item[data-active='true'] {
+  color: var(--zm-primary);
+  background: var(--zm-bg-active);
+  font-weight: 600;
+}
+
+/* ===== 气泡菜单 ===== */
+.zhimo-editor .zm-bubble-menu {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  white-space: nowrap;
+}
+
+.zhimo-editor .zm-bubble-menu .zm-tool-btn {
+  width: 28px;
+  height: 28px;
+}
+
+/* ===== 链接弹层 ===== */
+.zhimo-editor .zm-link-popover {
+  padding: 10px;
+  min-width: 280px;
+}
+
+.zhimo-editor .zm-link-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--zm-text-secondary);
+}
+
+.zhimo-editor .zm-link-input {
+  flex: 1;
+  min-width: 0;
+  height: 30px;
+  border: 1px solid var(--zm-border-strong);
+  border-radius: 6px;
+  padding: 0 10px;
+  font-size: 13px;
+  font-family: inherit;
+  color: var(--zm-text);
+  background: var(--zm-bg);
+  outline: none;
+}
+
+.zhimo-editor .zm-link-input:focus {
+  border-color: var(--zm-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--zm-primary) 18%, transparent);
+}
+
+.zhimo-editor .zm-link-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.zhimo-editor .zm-link-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: none;
+  border-radius: 6px;
+  padding: 5px 12px;
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  background: transparent;
+  color: var(--zm-text-secondary);
+}
+
+.zhimo-editor .zm-link-btn:hover {
+  background: var(--zm-bg-hover);
+}
+
+.zhimo-editor .zm-link-remove {
+  margin-right: auto;
+  color: var(--zm-danger);
+}
+
+.zhimo-editor .zm-link-save {
+  background: var(--zm-primary);
+  color: #fff;
+}
+
+.zhimo-editor .zm-link-save:hover {
+  background: var(--zm-primary-hover);
+}
+
+/* ===== 斜杠菜单 ===== */
+.zhimo-editor .zm-slash-menu {
+  min-width: 220px;
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 6px;
+}
+
+.zhimo-editor .zm-slash-group {
+  padding: 6px 10px 4px;
+  font-size: 12px;
+  color: var(--zm-text-muted);
+  user-select: none;
+}
+
+.zhimo-editor .zm-slash-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  padding: 7px 10px;
+  font-size: 13.5px;
+  font-family: inherit;
+  color: var(--zm-text);
+  cursor: pointer;
+  text-align: left;
+}
+
+.zhimo-editor .zm-slash-item[data-active='true'] {
+  background: var(--zm-bg-active);
+  color: var(--zm-primary);
+}
+
+.zhimo-editor .zm-slash-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: var(--zm-bg-hover);
+  color: var(--zm-text-secondary);
+  flex-shrink: 0;
+}
+
+.zhimo-editor .zm-slash-item[data-active='true'] .zm-slash-icon {
+  background: var(--zm-primary-soft);
+  color: var(--zm-primary);
+}
+
+.zhimo-editor .zm-slash-label {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.zhimo-editor .zm-slash-hint {
+  font-style: normal;
+  font-size: 12px;
+  color: var(--zm-text-muted);
+}
+
+.zhimo-editor .zm-slash-empty {
+  padding: 10px;
+  font-size: 13px;
+  color: var(--zm-text-muted);
+  text-align: center;
+}
+
+/* ===== 图片弹层 ===== */
+.zhimo-editor .zm-image-popover {
+  padding: 10px;
+  min-width: 300px;
+}
+
+.zhimo-editor .zm-image-upload {
+  margin-top: 8px;
+}
+
+.zhimo-editor .zm-link-upload {
+  border: 1px dashed var(--zm-border-strong);
+  width: 100%;
+  justify-content: center;
+  padding: 8px;
+  color: var(--zm-primary);
+}
+
+.zhimo-editor .zm-link-upload:hover {
+  border-color: var(--zm-primary);
+  background: var(--zm-primary-soft);
+}
+
+.zhimo-editor .zm-image-error {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--zm-danger);
+}
+
+/* ===== 表格上下文工具条 ===== */
+.zhimo-editor .zm-table-menu {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  white-space: nowrap;
+}
+
+.zhimo-editor .zm-table-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  width: 30px;
+  height: 28px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--zm-text-secondary);
+  cursor: pointer;
+}
+
+.zhimo-editor .zm-table-btn:hover {
+  background: var(--zm-bg-hover);
+  color: var(--zm-text);
+}
+
+.zhimo-editor .zm-table-btn-danger:hover {
+  background: #fef2f2;
+  color: var(--zm-danger);
+}
+
+.zhimo-editor .zm-table-btn-sub {
+  font-size: 10px;
+  line-height: 1;
+}
+
+/* ===== 错误提示条 ===== */
+.zhimo-editor .zm-editor-error {
+  border-top: 1px solid color-mix(in srgb, var(--zm-danger) 30%, transparent);
+  background: #fef2f2;
+  color: var(--zm-danger);
+  font-size: 12.5px;
+  padding: 6px 14px;
+}
+
+/* ===== 图片上传中 ===== */
+.zhimo-editor .tiptap img[data-uploading='true'] {
+  min-width: 120px;
+  min-height: 80px;
+  background:
+    linear-gradient(
+        90deg,
+        var(--zm-bg-hover) 25%,
+        #e5e7eb 37%,
+        var(--zm-bg-hover) 63%
+      )
+      0 0 / 400% 100% no-repeat;
+  animation: zm-shimmer 1.4s ease infinite;
+}
+
+@keyframes zm-shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: 0 0;
+  }
+}

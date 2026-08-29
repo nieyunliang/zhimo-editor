@@ -1,0 +1,21 @@
+/* Playground 全局样式入口：编辑器库样式（含 Tailwind zhimo layer） */
+@import './editor/styles/index.css';
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family:
+    'PingFang SC',
+    'Hiragino Sans GB',
+    'Microsoft YaHei',
+    system-ui,
+    -apple-system,
+    sans-serif;
+  background: var(--zm-page-bg, #f5f6f8);
+  color: var(--zm-text, #1f2329);
+  -webkit-font-smoothing: antialiased;
+}
