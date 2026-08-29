@@ -37,6 +37,7 @@
     "build:lib": "vite build --config vite.lib.config.ts",
     "build:css": "tailwindcss -i src/editor/styles/index.css -o dist/zhimo-editor.css --minify",
     "build:dist": "npm run build:lib && npm run build:css",
+    "prepare": "npm run build:dist",
     "lint": "oxlint",
     "test": "vitest run",
     "preview": "vite preview"
