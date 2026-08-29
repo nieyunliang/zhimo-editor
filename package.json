@@ -3,6 +3,21 @@
   "version": "0.1.0",
   "description": "知墨编辑器：基于 TipTap v3 的 React 富文本编辑器组件",
   "license": "MIT",
+  "author": "nieyunliang",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nieyunliang/zhimo-editor.git"
+  },
+  "homepage": "https://github.com/nieyunliang/zhimo-editor#readme",
+  "bugs": {
+    "url": "https://github.com/nieyunliang/zhimo-editor/issues"
+  },
+  "engines": {
+    "node": ">=20.19"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "keywords": [
     "react",
     "editor",
@@ -40,6 +55,7 @@
     "prepare": "npm run build:dist",
     "lint": "oxlint",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "preview": "vite preview"
   },
   "peerDependencies": {
@@ -56,7 +72,6 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
-  "dependencies": {},
   "devDependencies": {
     "@babel/core": "^7.29.7",
     "@rolldown/plugin-babel": "^0.2.3",
@@ -69,9 +84,6 @@
     "@tiptap/extension-link": "^3.30.2",
     "@tiptap/extension-placeholder": "^3.30.2",
     "@tiptap/extension-table": "^3.30.2",
-    "@tiptap/extension-table-cell": "^3.30.2",
-    "@tiptap/extension-table-header": "^3.30.2",
-    "@tiptap/extension-table-row": "^3.30.2",
     "@tiptap/extension-underline": "^3.30.2",
     "@tiptap/pm": "^3.30.2",
     "@tiptap/react": "^3.30.2",
@@ -81,6 +93,7 @@
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.4",
+    "@vitest/coverage-v8": "^4.1.11",
     "babel-plugin-react-compiler": "^1.0.0",
     "jsdom": "^29.1.1",
     "lucide-react": "^1.33.0",

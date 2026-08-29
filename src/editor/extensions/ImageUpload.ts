@@ -12,7 +12,9 @@ declare module '@tiptap/core' {
 
 /**
  * 知墨图片：在官方 Image 基础上增加 data-uploading 属性，
- * 用于上传中占位（加载动画由 CSS 呈现）。
+ * 用于上传中占位（加载动画由 CSS 呈现）；另有 data-upload-id 作为
+ * 上传任务唯一标识（仅内存使用、不渲染进 HTML），供并发上传时
+ * 精确匹配占位节点。
  */
 export const ZhimoImage = Image.extend({
   addAttributes() {
@@ -23,6 +25,11 @@ export const ZhimoImage = Image.extend({
         parseHTML: (el) => el.getAttribute('data-uploading'),
         renderHTML: (attrs) =>
           attrs['data-uploading'] ? { 'data-uploading': 'true' } : {},
+      },
+      'data-upload-id': {
+        default: null,
+        // 仅程序化写入（create / setNodeMarkup），不从 HTML 解析、不渲染
+        renderHTML: () => ({}),
       },
     }
   },
@@ -50,28 +57,78 @@ interface ImageUploadStorage {
   cleanup: (() => void) | null
 }
 
+/** 上传任务 id 递增计数器（编辑器间共享无副作用：仅需文档内唯一） */
+let uploadIdCounter = 0
+const nextUploadId = () => `zm-upload-${++uploadIdCounter}`
+
 /**
  * 定位「上传中」占位图片。
  *
  * 不能依赖插入前捕获的位置：insertContentAt 会把 block 图片提升到最近
  * 合法落点（光标在段首时落在段前、段中时分裂段落），实际位置与捕获的
  * selection.from 不一致，nodeAt(pos) 会取到相邻段落导致替换/回滚静默失效。
- * 这里扫描文档找 data-uploading 图片中距离锚点最近的一个。
+ * 这里以 data-upload-id 精确匹配占位节点，并发上传互不串扰。
  */
-function findUploadingImagePos(editor: Editor, anchor: number): number {
+function findUploadingImagePos(editor: Editor, uploadId: string): number {
   let best = -1
-  let bestDist = Infinity
   editor.state.doc.descendants((node, pos) => {
-    if (node.type.name === 'image' && node.attrs['data-uploading']) {
-      const dist = Math.abs(pos - anchor)
-      if (dist < bestDist) {
-        bestDist = dist
-        best = pos
-      }
+    if (node.type.name === 'image' && node.attrs['data-upload-id'] === uploadId) {
+      best = pos
+      return false
     }
     return true
   })
   return best
+}
+
+/**
+ * 上传图片文件：先插入占位节点，成功后替换为真实图片，失败时移除占位并广播错误。
+ * 命令（uploadAndInsertImage）与粘贴/拖拽入口共用此流程。
+ */
+function startUpload(
+  editor: Editor,
+  uploadImage: ((file: File) => Promise<string>) | undefined,
+  pos: number,
+  file: File,
+) {
+  if (!uploadImage) return
+
+  const uploadId = nextUploadId()
+  const imageType = editor.schema.nodes.image
+  const placeholder = imageType?.create({
+    src: '',
+    'data-uploading': 'true',
+    'data-upload-id': uploadId,
+  })
+  if (!placeholder) return
+  editor.chain().insertContentAt(pos, placeholder).run()
+
+  uploadImage(file)
+    .then((src) => {
+      const imgPos = findUploadingImagePos(editor, uploadId)
+      if (imgPos < 0) return
+      editor
+        .chain()
+        .command(({ tr }) => {
+          const n = tr.doc.nodeAt(imgPos)
+          if (n?.type.name !== 'image') return false
+          tr.setNodeMarkup(imgPos, undefined, {
+            ...n.attrs,
+            src,
+            'data-uploading': null,
+            'data-upload-id': null,
+          })
+          return true
+        })
+        .run()
+    })
+    .catch(() => {
+      const imgPos = findUploadingImagePos(editor, uploadId)
+      if (imgPos >= 0) {
+        editor.chain().deleteRange({ from: imgPos, to: imgPos + 1 }).run()
+      }
+      editor.emit('imageUploadError', { message: '图片上传失败，请重试' })
+    })
 }
 
 /** 图片上传扩展：上传命令 + 粘贴/拖拽图片文件处理 */
@@ -93,39 +150,7 @@ export const ImageUpload = Extension.create<ImageUploadOptions, ImageUploadStora
         ({ editor }) => {
           const { uploadImage } = this.options
           if (!uploadImage) return false
-
-          const pos = editor.state.selection.from
-          const placeholder = editor.schema.nodes.image.create({
-            src: '',
-            'data-uploading': 'true',
-          })
-          editor.chain().insertContentAt(pos, placeholder).run()
-
-          uploadImage(file)
-            .then((src) => {
-              const imgPos = findUploadingImagePos(editor, pos)
-              if (imgPos < 0) return
-              editor
-                .chain()
-                .command(({ tr }) => {
-                  const n = tr.doc.nodeAt(imgPos)
-                  if (n?.type.name !== 'image') return false
-                  tr.setNodeMarkup(imgPos, undefined, {
-                    ...n.attrs,
-                    src,
-                    'data-uploading': null,
-                  })
-                  return true
-                })
-                .run()
-            })
-            .catch(() => {
-              const imgPos = findUploadingImagePos(editor, pos)
-              if (imgPos >= 0) {
-                editor.chain().deleteRange({ from: imgPos, to: imgPos + 1 }).run()
-              }
-              editor.emit('imageUploadError', { message: '图片上传失败，请重试' })
-            })
+          startUpload(editor, uploadImage, editor.state.selection.from, file)
           return true
         },
     }
@@ -137,62 +162,41 @@ export const ImageUpload = Extension.create<ImageUploadOptions, ImageUploadStora
     const dom = editor.view.dom
     this.storage.dom = dom
 
-    /** 在指定位置插入上传中的图片 */
-    const insertUploading = (pos: number, file: File) => {
-      const placeholder = editor.schema.nodes.image.create({
-        src: '',
-        'data-uploading': 'true',
-      })
-      editor.chain().insertContentAt(pos, placeholder).run()
-      uploadImage?.(file)
-        .then((src) => {
-          const imgPos = findUploadingImagePos(editor, pos)
-          if (imgPos < 0) return
-          editor
-            .chain()
-            .command(({ tr }) => {
-              const n = tr.doc.nodeAt(imgPos)
-              if (n?.type.name !== 'image') return false
-              tr.setNodeMarkup(imgPos, undefined, {
-                ...n.attrs,
-                src,
-                'data-uploading': null,
-              })
-              return true
-            })
-            .run()
-        })
-        .catch(() => {
-          const imgPos = findUploadingImagePos(editor, pos)
-          if (imgPos >= 0) {
-            editor.chain().deleteRange({ from: imgPos, to: imgPos + 1 }).run()
-          }
-          editor.emit('imageUploadError', { message: '图片上传失败，请重试' })
-        })
-    }
-
     const findImageFile = (list: FileList | null | undefined) =>
       Array.from(list ?? []).find((f) => f.type.startsWith('image/'))
+
+    /** 未配置上传时的统一拦截提示（粘贴与拖拽一致） */
+    const blocked = () =>
+      editor.emit('imageUploadBlocked', { message: '未配置图片上传，请使用 URL 插入' })
 
     const onPaste = (event: ClipboardEvent) => {
       const file = findImageFile(event.clipboardData?.files)
       if (!file) return
       event.preventDefault()
       if (!uploadImage) {
-        editor.emit('imageUploadBlocked', { message: '未配置图片上传，请使用 URL 插入' })
+        blocked()
         return
       }
-      insertUploading(editor.state.selection.from, file)
+      startUpload(editor, uploadImage, editor.state.selection.from, file)
     }
 
     const onDrop = (event: DragEvent) => {
       const file = findImageFile(event.dataTransfer?.files)
       if (!file) return
       event.preventDefault()
-      if (!uploadImage) return
-      const coords = editor.view.posAtCoords({ left: event.clientX, top: event.clientY })
-      if (!coords) return
-      insertUploading(coords.pos, file)
+      if (!uploadImage) {
+        blocked()
+        return
+      }
+      // 拖拽落点优先；无 DOM 测量环境（如 jsdom 测试）降级为当前选区位置
+      let pos = editor.state.selection.from
+      try {
+        const coords = editor.view.posAtCoords({ left: event.clientX, top: event.clientY })
+        if (coords) pos = coords.pos
+      } catch {
+        // jsdom 等环境不支持坐标测量
+      }
+      startUpload(editor, uploadImage, pos, file)
     }
 
     dom.addEventListener('paste', onPaste)

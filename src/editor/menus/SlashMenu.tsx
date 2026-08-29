@@ -2,146 +2,12 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { Editor } from '@tiptap/react'
 import {
-  Pilcrow,
-  Heading1,
-  Heading2,
-  Heading3,
-  List,
-  ListOrdered,
-  Quote,
-  Code2,
-  Minus,
-  Link2,
-  Table,
-  Image as ImageIcon,
-  type LucideIcon,
-} from 'lucide-react'
-
-interface SlashItem {
-  id: string
-  label: string
-  hint?: string
-  icon: LucideIcon
-  keywords?: string[]
-  run: (editor: Editor) => void
-}
-
-/** 斜杠命令清单（分组展示） */
-const SLASH_GROUPS: Array<{ title: string; items: SlashItem[] }> = [
-  {
-    title: '文本',
-    items: [
-      {
-        id: 'p',
-        label: '正文',
-        icon: Pilcrow,
-        keywords: ['段落', 'paragraph'],
-        run: (e) => e.chain().focus().setParagraph().run(),
-      },
-      {
-        id: 'h1',
-        label: '标题 1',
-        hint: '大标题',
-        icon: Heading1,
-        keywords: ['一级'],
-        run: (e) => e.chain().focus().toggleHeading({ level: 1 }).run(),
-      },
-      {
-        id: 'h2',
-        label: '标题 2',
-        hint: '中标题',
-        icon: Heading2,
-        keywords: ['二级'],
-        run: (e) => e.chain().focus().toggleHeading({ level: 2 }).run(),
-      },
-      {
-        id: 'h3',
-        label: '标题 3',
-        hint: '小标题',
-        icon: Heading3,
-        keywords: ['三级'],
-        run: (e) => e.chain().focus().toggleHeading({ level: 3 }).run(),
-      },
-    ],
-  },
-  {
-    title: '列表',
-    items: [
-      {
-        id: 'ul',
-        label: '无序列表',
-        icon: List,
-        keywords: ['圆点', 'bullet'],
-        run: (e) => e.chain().focus().toggleBulletList().run(),
-      },
-      {
-        id: 'ol',
-        label: '有序列表',
-        icon: ListOrdered,
-        keywords: ['编号', 'numbered'],
-        run: (e) => e.chain().focus().toggleOrderedList().run(),
-      },
-    ],
-  },
-  {
-    title: '块',
-    items: [
-      {
-        id: 'quote',
-        label: '引用',
-        icon: Quote,
-        keywords: ['blockquote'],
-        run: (e) => e.chain().focus().toggleBlockquote().run(),
-      },
-      {
-        id: 'codeblock',
-        label: '代码块',
-        icon: Code2,
-        keywords: ['code'],
-        run: (e) => e.chain().focus().toggleCodeBlock().run(),
-      },
-      {
-        id: 'hr',
-        label: '分割线',
-        icon: Minus,
-        keywords: ['分隔', 'hr'],
-        run: (e) => e.chain().focus().setHorizontalRule().run(),
-      },
-    ],
-  },
-  {
-    title: '插入',
-    items: [
-      {
-        id: 'link',
-        label: '链接',
-        icon: Link2,
-        keywords: ['网址', 'url'],
-        run: (e) => {
-          const pos = e.state.selection.from
-          e.chain().focus().insertContentAt(pos, '链接').run()
-          e.commands.setTextSelection({ from: pos, to: pos + 2 })
-        },
-      },
-      {
-        id: 'image',
-        label: '图片',
-        icon: ImageIcon,
-        keywords: ['插图', 'img'],
-        run: () => {},
-      },
-      {
-        id: 'table',
-        label: '表格',
-        icon: Table,
-        keywords: ['3x3'],
-        run: (e) => e.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run(),
-      },
-    ],
-  },
-]
-
-const ALL_ITEMS = SLASH_GROUPS.flatMap((g) => g.items)
+  COMMAND_GROUPS,
+  EDITOR_COMMANDS,
+  type CommandContext,
+  type EditorCommand,
+} from '../commands'
+import { usePopoverAnchor, usePopoverFlip } from '../utils/popover'
 
 interface SlashMenuProps {
   editor: Editor
@@ -158,27 +24,18 @@ interface MenuState {
   query: string
 }
 
-/** 锚点坐标（视口坐标系） */
-interface Anchor {
-  top: number
-  bottom: number
-  left: number
-}
-
 /** 斜杠命令菜单：输入 / 触发，支持过滤与键盘导航 */
 export function SlashMenu({ editor, onOpenLink, onOpenImage }: SlashMenuProps) {
   const [state, setState] = useState<MenuState | null>(null)
   const [activeIndex, setActiveIndex] = useState(0)
-  const [anchor, setAnchor] = useState<Anchor | null>(null)
-  const [flipped, setFlipped] = useState(false)
   const boxRef = useRef<HTMLDivElement>(null)
 
   /** 按 query 过滤命令 */
   const items = useMemo(() => {
     if (!state) return []
     const q = state.query.trim().toLowerCase()
-    if (!q) return ALL_ITEMS
-    return ALL_ITEMS.filter(
+    if (!q) return EDITOR_COMMANDS
+    return EDITOR_COMMANDS.filter(
       (i) =>
         i.label.toLowerCase().includes(q) ||
         i.keywords?.some((k) => k.includes(q) || q.includes(k)),
@@ -223,18 +80,23 @@ export function SlashMenu({ editor, onOpenLink, onOpenImage }: SlashMenuProps) {
     }
   }, [editor, state])
 
-  /** 定位到 '/' 字符 */
-  useEffect(() => {
-    if (!state) return
-    try {
-      const coords = editor.view.coordsAtPos(state.pos)
-      setAnchor({ top: coords.top, bottom: coords.bottom, left: coords.left })
-    } catch {
-      // 环境不支持 DOM 测量（如 jsdom/SSR 测试）时降级为固定锚点
-      setAnchor({ top: 0, bottom: 0, left: 0 })
-    }
-    setFlipped(false)
-  }, [editor, state])
+  /** 定位到 '/' 字符；jsdom/SSR 无 DOM 测量时降级为固定锚点保持可见 */
+  const anchor = usePopoverAnchor(
+    editor,
+    () => {
+      if (!state) return null
+      try {
+        const coords = editor.view.coordsAtPos(state.pos)
+        return { top: coords.top, bottom: coords.bottom, left: coords.left }
+      } catch {
+        return { top: 0, bottom: 0, left: 0 }
+      }
+    },
+    [state],
+  )
+
+  // 视口放不下时向上翻转
+  const flipped = usePopoverFlip(anchor, boxRef, 8)
 
   /** 键盘导航 */
   useEffect(() => {
@@ -248,7 +110,8 @@ export function SlashMenu({ editor, onOpenLink, onOpenImage }: SlashMenuProps) {
         setActiveIndex((i) => (i - 1 + items.length) % items.length)
       } else if (ev.key === 'Enter') {
         ev.preventDefault()
-        execute(items[activeIndex])
+        const item = items[activeIndex]
+        if (item) execute(item)
       } else if (ev.key === 'Escape') {
         ev.preventDefault()
         setState(null)
@@ -256,7 +119,7 @@ export function SlashMenu({ editor, onOpenLink, onOpenImage }: SlashMenuProps) {
     }
     editor.view.dom.addEventListener('keydown', onKeyDown)
     return () => editor.view.dom.removeEventListener('keydown', onKeyDown)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // oxlint-disable-next-line react/exhaustive-deps -- activeIndex/items 需随订阅更新
   }, [editor, state, items, activeIndex])
 
   /** 失焦关闭 */
@@ -268,29 +131,21 @@ export function SlashMenu({ editor, onOpenLink, onOpenImage }: SlashMenuProps) {
     }
   }, [editor])
 
-  /** 执行命令：先删除 '/' 及过滤文本 */
-  const execute = (item: SlashItem) => {
+  /** 执行命令：先删除 '/' 及过滤文本，再执行命令本身 */
+  const execute = (item: EditorCommand) => {
     if (!state) return
     const { pos, query } = state
     editor.chain().focus().deleteRange({ from: pos, to: pos + query.length + 1 }).run()
     setState(null)
-    if (item.id === 'image') {
-      onOpenImage()
-    } else {
-      // link 项的 run 会插入「链接」占位文本并选中，随后打开弹层让链接落到该文本上
-      item.run(editor)
-      if (item.id === 'link') onOpenLink()
-    }
+    const ctx: CommandContext = { openLink: onOpenLink, openImage: onOpenImage }
+    // link 项的 run 会插入「链接」占位文本并选中，随后打开弹层让链接落到该文本上
+    item.run(editor, ctx)
   }
 
-  /** 视口放不下时向上翻转 */
-  useEffect(() => {
-    if (!anchor || !boxRef.current) return
-    const { height } = boxRef.current.getBoundingClientRect()
-    setFlipped(anchor.bottom + 8 + height > window.innerHeight)
-  }, [anchor])
-
   if (!state || !anchor) return null
+
+  const activeItem = items[activeIndex]
+  const activeId = activeItem ? `zm-slash-option-${activeItem.id}` : undefined
 
   return createPortal(
     <div
@@ -304,21 +159,23 @@ export function SlashMenu({ editor, onOpenLink, onOpenImage }: SlashMenuProps) {
       onMouseDown={(e) => e.preventDefault()}
       role="listbox"
       aria-label="命令菜单"
+      aria-activedescendant={activeId}
     >
       {items.length === 0 && (
         <div className="zm-slash-empty">没有匹配的命令</div>
       )}
-      {SLASH_GROUPS.map((group) => {
-        const groupItems = items.filter((i) => group.items.some((g) => g.id === i.id))
+      {COMMAND_GROUPS.map((group) => {
+        const groupItems = items.filter((i) => i.group === group.group)
         if (groupItems.length === 0) return null
         return (
-          <div key={group.title}>
+          <div key={group.group}>
             <div className="zm-slash-group">{group.title}</div>
             {groupItems.map((item) => {
               const index = items.indexOf(item)
               return (
                 <button
                   key={item.id}
+                  id={`zm-slash-option-${item.id}`}
                   type="button"
                   role="option"
                   aria-selected={index === activeIndex}

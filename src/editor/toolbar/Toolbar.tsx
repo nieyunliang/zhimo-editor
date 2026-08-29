@@ -1,26 +1,20 @@
 import type { Editor } from '@tiptap/react'
 import { useEditorState } from '@tiptap/react'
-import {
-  Bold,
-  Italic,
-  Underline,
-  Strikethrough,
-  Code,
-  List,
-  ListOrdered,
-  Quote,
-  Code2,
-  Minus,
-  Link2,
-  Image as ImageIcon,
-  Table,
-  Undo2,
-  Redo2,
-} from 'lucide-react'
+import { Bold, Italic, Underline, Strikethrough, Code, Undo2, Redo2 } from 'lucide-react'
 import { ToolButton } from './Button'
 import { ToolDivider } from './Divider'
 import { BlockSelect } from './Select'
+import { EDITOR_COMMANDS, type CommandContext, type EditorCommand } from '../commands'
 import { modKey } from '../utils/platform'
+
+/** 行内标记按钮（工具栏专属，不在斜杠菜单中出现） */
+const INLINE_MARKS = [
+  { icon: Bold, label: '加粗', shortcut: modKey + 'B', mark: 'bold', run: (e: Editor) => e.chain().focus().toggleBold().run() },
+  { icon: Italic, label: '斜体', shortcut: modKey + 'I', mark: 'italic', run: (e: Editor) => e.chain().focus().toggleItalic().run() },
+  { icon: Underline, label: '下划线', shortcut: modKey + 'U', mark: 'underline', run: (e: Editor) => e.chain().focus().toggleUnderline().run() },
+  { icon: Strikethrough, label: '删除线', shortcut: modKey + 'Shift+X', mark: 'strike', run: (e: Editor) => e.chain().focus().toggleStrike().run() },
+  { icon: Code, label: '行内代码', shortcut: modKey + 'E', mark: 'code', run: (e: Editor) => e.chain().focus().toggleCode().run() },
+] as const
 
 /** 工具栏整体状态订阅（selection/transaction 变化时更新） */
 function useToolbarState(editor: Editor) {
@@ -28,17 +22,18 @@ function useToolbarState(editor: Editor) {
     editor,
     selector: ({ editor: e }) => {
       if (!e) return null
+      // 注册表命令激活态；声明了 isActive 的命令才能作为 toggle 高亮
+      const active: Record<string, boolean> = {}
+      for (const cmd of EDITOR_COMMANDS) {
+        active[cmd.id] = cmd.isActive?.(e) ?? false
+      }
       return {
+        active,
         bold: e.isActive('bold'),
         italic: e.isActive('italic'),
         underline: e.isActive('underline'),
         strike: e.isActive('strike'),
         code: e.isActive('code'),
-        link: e.isActive('link'),
-        bulletList: e.isActive('bulletList'),
-        orderedList: e.isActive('orderedList'),
-        blockquote: e.isActive('blockquote'),
-        codeBlock: e.isActive('codeBlock'),
         canUndo: e.can().undo(),
         canRedo: e.can().redo(),
       }
@@ -62,116 +57,65 @@ export function Toolbar({
   const s = useToolbarState(editor)
   if (!s) return null
 
+  const ctx: CommandContext = { openLink: onOpenLink, openImage: onOpenImage }
+
+  /**
+   * 注册表命令按钮。link/image 是「弹层型」命令：作用于当前选区直接打开
+   * 弹层（注册表的 run 是斜杠菜单的占位插入语义，此处不适用）。
+   */
+  const registryButton = (cmd: EditorCommand) => {
+    const isActive = cmd.isActive ? (s.active[cmd.id] ?? false) : undefined
+    const onClick = () => {
+      if (cmd.id === 'link') {
+        onOpenLink()
+        return
+      }
+      if (cmd.id === 'image') {
+        onOpenImage()
+        return
+      }
+      cmd.run(editor, ctx)
+    }
+    return (
+      <ToolButton
+        key={cmd.id}
+        icon={cmd.icon}
+        label={cmd.toolbarLabel ?? cmd.label}
+        shortcut={cmd.shortcut}
+        active={isActive}
+        disabled={disabled}
+        onClick={onClick}
+      />
+    )
+  }
+
+  const byGroup = (group: EditorCommand['group']) => EDITOR_COMMANDS.filter((c) => c.group === group)
+
   return (
     <div className="zm-toolbar" role="toolbar" aria-label="编辑工具栏">
-      <BlockSelect editor={editor} disabled={disabled} />
+      <BlockSelect editor={editor} ctx={ctx} disabled={disabled} />
       <ToolDivider />
 
-      <ToolButton
-        icon={Bold}
-        label="加粗"
-        shortcut={modKey + 'B'}
-        active={s.bold}
-        disabled={disabled}
-        onClick={() => editor.chain().focus().toggleBold().run()}
-      />
-      <ToolButton
-        icon={Italic}
-        label="斜体"
-        shortcut={modKey + 'I'}
-        active={s.italic}
-        disabled={disabled}
-        onClick={() => editor.chain().focus().toggleItalic().run()}
-      />
-      <ToolButton
-        icon={Underline}
-        label="下划线"
-        shortcut={modKey + 'U'}
-        active={s.underline}
-        disabled={disabled}
-        onClick={() => editor.chain().focus().toggleUnderline().run()}
-      />
-      <ToolButton
-        icon={Strikethrough}
-        label="删除线"
-        shortcut={modKey + 'Shift+X'}
-        active={s.strike}
-        disabled={disabled}
-        onClick={() => editor.chain().focus().toggleStrike().run()}
-      />
-      <ToolButton
-        icon={Code}
-        label="行内代码"
-        shortcut={modKey + 'E'}
-        active={s.code}
-        disabled={disabled}
-        onClick={() => editor.chain().focus().toggleCode().run()}
-      />
+      {INLINE_MARKS.map((m) => (
+        <ToolButton
+          key={m.mark}
+          icon={m.icon}
+          label={m.label}
+          shortcut={m.shortcut}
+          active={s[m.mark]}
+          disabled={disabled}
+          onClick={() => m.run(editor)}
+        />
+      ))}
       <ToolDivider />
 
-      <ToolButton
-        icon={List}
-        label="无序列表"
-        shortcut={modKey + 'Shift+8'}
-        active={s.bulletList}
-        disabled={disabled}
-        onClick={() => editor.chain().focus().toggleBulletList().run()}
-      />
-      <ToolButton
-        icon={ListOrdered}
-        label="有序列表"
-        shortcut={modKey + 'Shift+7'}
-        active={s.orderedList}
-        disabled={disabled}
-        onClick={() => editor.chain().focus().toggleOrderedList().run()}
-      />
+      {byGroup('list').map(registryButton)}
       <ToolDivider />
 
-      <ToolButton
-        icon={Quote}
-        label="引用"
-        shortcut={modKey + 'Shift+B'}
-        active={s.blockquote}
-        disabled={disabled}
-        onClick={() => editor.chain().focus().toggleBlockquote().run()}
-      />
-      <ToolButton
-        icon={Code2}
-        label="代码块"
-        active={s.codeBlock}
-        disabled={disabled}
-        onClick={() => editor.chain().focus().toggleCodeBlock().run()}
-      />
-      <ToolButton
-        icon={Minus}
-        label="分割线"
-        disabled={disabled}
-        onClick={() => editor.chain().focus().setHorizontalRule().run()}
-      />
+      {byGroup('block').map(registryButton)}
       <ToolDivider />
 
-      <ToolButton
-        icon={Link2}
-        label="链接"
-        shortcut={modKey + 'K'}
-        active={s.link}
-        disabled={disabled}
-        onClick={onOpenLink}
-      />
-      <ToolButton
-        icon={ImageIcon}
-        label="图片"
-        disabled={disabled}
-        onClick={onOpenImage}
-      />
-      <ToolButton
-        icon={Table}
-        label="插入表格"
-        disabled={disabled}
-        onClick={() =>
-          editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()
-        }
-      />
+      {byGroup('insert').map(registryButton)}
       <div className="ml-auto flex items-center gap-0.5">
         <ToolButton
           icon={Undo2}

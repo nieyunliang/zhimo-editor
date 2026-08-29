@@ -45,7 +45,7 @@ export function useZhimoEditor(props: ZhimoEditorProps): Editor | null {
 
   const ext = useMemo(
     () => buildExtensions({ placeholder, extensions, uploadImage }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- extensions 由调用方保证稳定
+    // oxlint-disable-next-line react/exhaustive-deps -- extensions 由调用方保证稳定
     [placeholder, extensions, uploadImage],
   )
 

@@ -22,7 +22,7 @@ export default defineConfig({
       tsconfigPath: './tsconfig.app.json',
       entryRoot: 'src/editor',
       include: ['src/editor'],
-      exclude: ['src/**/*.test.{ts,tsx}', 'src/test/**'],
+      exclude: ['src/**/*.test.{ts,tsx}', 'src/test/**', 'src/editor/test-utils.tsx'],
     }),
   ],
   build: {

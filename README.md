@@ -122,6 +122,7 @@ npm install          # 安装依赖
 npm run dev          # 启动 Playground（http://localhost:5173）
 npm run lint         # oxlint 检查
 npm run test         # vitest 单元测试
+npm run test:coverage# vitest 单元测试 + 覆盖率门禁（CI 使用）
 npm run build:dist   # 构建库产物（dist/zhimo-editor.js + .d.ts + .css）
 npm run build        # 构建 Playground 应用
 ```

@@ -47,3 +47,9 @@ if (typeof Text !== 'undefined') {
     textProto.getBoundingClientRect = () => zeroRect()
   }
 }
+
+if (typeof document !== 'undefined' && typeof document.elementFromPoint !== 'function') {
+  // prosemirror-view 的 posAtCoords（拖拽落点）依赖 elementFromPoint；
+  // jsdom 未实现时返回 null，让调用方走降级路径
+  document.elementFromPoint = () => null
+}

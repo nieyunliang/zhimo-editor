@@ -114,4 +114,45 @@ describe('体检：工具栏全部按钮', () => {
       expect(screen.getByRole('button', { name: '加粗' }).getAttribute('aria-pressed')).toBe('true'),
     )
   })
+
+  it('aria-pressed 仅出现在 toggle 按钮（动作按钮不播报按下状态）', async () => {
+    renderEditor({ defaultValue: '<p>待格式化文本</p>' })
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: '加粗' }).hasAttribute('aria-pressed')).toBe(true),
+    )
+    // 动作按钮（插入表格 / 撤销）不携带 aria-pressed
+    expect(screen.getByRole('button', { name: '插入表格' }).hasAttribute('aria-pressed')).toBe(
+      false,
+    )
+    expect(screen.getByRole('button', { name: '撤销' }).hasAttribute('aria-pressed')).toBe(false)
+  })
+
+  it('段落下拉支持键盘：ArrowDown 移动高亮、Enter 应用、Escape 关闭', async () => {
+    const { getEditor } = renderEditor({})
+    const editor = await editorReady(getEditor)
+
+    const trigger = screen.getByRole('button', { name: /正文/ })
+    trigger.focus()
+    // 打开（高亮当前「正文」）→ 下移 2 次（标题 2）→ 应用：
+    // 共 3 次 ArrowDown（第 1 次打开并高亮正文，后 2 次移动）
+    await userEvent.keyboard('{ArrowDown}{ArrowDown}{ArrowDown}{Enter}')
+    expect(editor.isActive('heading', { level: 2 })).toBe(true)
+    await waitFor(() => expect(screen.getByRole('button', { name: /标题 2/ })).toBeTruthy())
+
+    // 重新打开，Escape 关闭
+    await userEvent.click(screen.getByRole('button', { name: /标题 2/ }))
+    expect(screen.getByRole('listbox')).toBeTruthy()
+    await userEvent.keyboard('{Escape}')
+    await waitFor(() => expect(screen.queryByRole('listbox')).toBeNull())
+  })
+
+  it('段落下拉带 aria-activedescendant 与选项 id', async () => {
+    renderEditor({ defaultValue: '<p>待格式化文本</p>' })
+    const trigger = await screen.findByRole('button', { name: /正文/ })
+    await userEvent.click(trigger)
+    const listbox = screen.getByRole('listbox')
+    // 打开时高亮当前格式（正文）
+    expect(listbox.getAttribute('aria-activedescendant')).toBe('zm-option-p')
+    expect(screen.getByRole('option', { name: '标题 1' }).getAttribute('id')).toBe('zm-option-h1')
+  })
 })

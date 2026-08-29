@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { Editor } from '@tiptap/react'
-import { renderEditor, editorReady, typeInto, deferred, pasteImageFile } from './test-utils'
+import { renderEditor, editorReady, typeInto, deferred, pasteImageFile, dropImageFile } from './test-utils'
 
 /**
  * 模拟「DOM 选区可见」：jsdom 中 window.getSelection 的几何测量全为 0，
@@ -122,6 +122,24 @@ describe('体检：斜杠命令菜单完整路径', () => {
     typeInto(editor, '/xyz')
     const listbox = await screen.findByRole('listbox')
     expect(within(listbox).getByText('没有匹配的命令')).toBeTruthy()
+  })
+
+  it('aria-activedescendant 随键盘导航更新', async () => {
+    const { getEditor } = renderEditor({})
+    const editor = await editorReady(getEditor)
+    typeInto(editor, '/')
+    const listbox = await screen.findByRole('listbox')
+    // 初始高亮第一项（正文）
+    expect(listbox.getAttribute('aria-activedescendant')).toBe('zm-slash-option-p')
+    act(() => {
+      editor.view.dom.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }))
+    })
+    await waitFor(() =>
+      expect(listbox.getAttribute('aria-activedescendant')).toBe('zm-slash-option-h1'),
+    )
+    expect(screen.getByRole('option', { name: /标题 1/ }).getAttribute('id')).toBe(
+      'zm-slash-option-h1',
+    )
   })
 })
 
@@ -310,6 +328,63 @@ describe('体检：图片粘贴上传', () => {
     await new Promise((r) => setTimeout(r, 50))
     expect(uploadImage).not.toHaveBeenCalled()
     expect(editor.getHTML()).not.toContain('<img')
+  })
+})
+
+describe('体检：图片拖拽上传', () => {
+  it('配置 uploadImage：拖拽图片 → 占位 → 上传成功替换', async () => {
+    const { promise, resolve } = deferred<string>()
+    const uploadImage = vi.fn(() => promise)
+    const { getEditor } = renderEditor({ uploadImage, defaultValue: '<p>段落</p>' })
+    const editor = await editorReady(getEditor)
+    const file = new File(['x'], 'b.png', { type: 'image/png' })
+    dropImageFile(editor, file)
+    expect(uploadImage).toHaveBeenCalledWith(file)
+    await waitFor(() => expect(editor.getHTML()).toContain('data-uploading="true"'))
+    act(() => resolve('https://cdn.example.com/b.png'))
+    await waitFor(() => {
+      expect(editor.getHTML()).toContain('src="https://cdn.example.com/b.png"')
+      expect(editor.getHTML()).not.toContain('data-uploading')
+    })
+  })
+
+  it('未配置 uploadImage：拖拽图片被拦截并提示（与粘贴一致）', async () => {
+    const { getEditor } = renderEditor({ defaultValue: '<p>段落</p>' })
+    const editor = await editorReady(getEditor)
+    dropImageFile(editor, new File(['x'], 'b.png', { type: 'image/png' }))
+    const alert = await screen.findByRole('alert')
+    expect(alert.textContent).toContain('未配置图片上传，请使用 URL 插入')
+    expect(editor.getHTML()).not.toContain('<img')
+  })
+
+  it('并发上传：完成顺序颠倒时各占位精确落位（不串图）', async () => {
+    const slow = deferred<string>()
+    const fast = deferred<string>()
+    const uploadImage = vi
+      .fn()
+      .mockReturnValueOnce(slow.promise)
+      .mockReturnValueOnce(fast.promise)
+    const { getEditor } = renderEditor({ uploadImage, defaultValue: '<p>段落</p>' })
+    const editor = await editorReady(getEditor)
+    const a = new File(['a'], 'a.png', { type: 'image/png' })
+    const b = new File(['b'], 'b.png', { type: 'image/png' })
+    pasteImageFile(editor, a)
+    pasteImageFile(editor, b)
+    await waitFor(() => {
+      expect((editor.getHTML().match(/data-uploading="true"/g) ?? []).length).toBe(2)
+    })
+    // 第二张先完成（无 data-upload-id 时按「距锚点最近」匹配会串图）
+    act(() => fast.resolve('https://cdn.example.com/fast.png'))
+    await waitFor(() =>
+      expect(editor.getHTML()).toContain('src="https://cdn.example.com/fast.png"'),
+    )
+    // 第一张后完成
+    act(() => slow.resolve('https://cdn.example.com/slow.png'))
+    await waitFor(() => {
+      expect(editor.getHTML()).toContain('src="https://cdn.example.com/slow.png"')
+      expect(editor.getHTML()).toContain('src="https://cdn.example.com/fast.png"')
+      expect(editor.getHTML()).not.toContain('data-uploading')
+    })
   })
 })
 

@@ -1,7 +1,8 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { Editor } from '@tiptap/react'
 import { Link2, Link2Off, X } from 'lucide-react'
+import { usePopoverAnchor, usePopoverFlip } from '../utils/popover'
 
 export interface LinkPopoverState {
   open: boolean
@@ -15,45 +16,40 @@ interface LinkPopoverProps {
   onClose: () => void
 }
 
-/** 选区锚点坐标（视口坐标系，popover 为 fixed 定位） */
-interface Anchor {
-  top: number
-  bottom: number
-  left: number
-}
-
 /** 链接编辑弹层：设置 / 移除链接 */
 export function LinkPopover({ editor, state, onClose }: LinkPopoverProps) {
   // 表单状态由 key 重建保证每次打开重置（url 初始值取当前链接）
   const [url, setUrl] = useState(state?.url ?? '')
-  const [anchor, setAnchor] = useState<Anchor | null>(null)
-  const [flipped, setFlipped] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const boxRef = useRef<HTMLDivElement>(null)
 
-  // 打开时定位到选区（外部系统同步）
+  // 打开时定位到选区；jsdom/SSR 无 DOM 测量时保持隐藏（anchor 为 null）
+  const anchor = usePopoverAnchor(
+    editor,
+    () => {
+      if (!state?.open) return null
+      try {
+        const { from } = editor.state.selection
+        const coords = editor.view.coordsAtPos(from)
+        return { top: coords.top, bottom: coords.bottom, left: coords.left }
+      } catch {
+        return null
+      }
+    },
+    [state?.open],
+  )
+
+  // 弹出方向翻转（下方放不下时显示在选区上方）
+  const flipped = usePopoverFlip(anchor, boxRef)
+
+  // 打开时聚焦输入框（外部系统同步）
   useEffect(() => {
     if (!state?.open) return
-    try {
-      const { from } = editor.state.selection
-      const coords = editor.view.coordsAtPos(from)
-      // oxlint-disable-next-line react/set-state-in-effect -- 定位结果写入状态是外部系统同步的正当用法
-      setAnchor({ top: coords.top, bottom: coords.bottom, left: coords.left })
-    } catch {
-      // 环境不支持 DOM 测量时保持隐藏（初始 anchor 为 null）
-    }
     requestAnimationFrame(() => {
       inputRef.current?.focus()
       inputRef.current?.select()
     })
   }, [state, editor])
-
-  // 弹出方向翻转（下方放不下时显示在选区上方）
-  useLayoutEffect(() => {
-    if (!anchor || !boxRef.current) return
-    const { height } = boxRef.current.getBoundingClientRect()
-    setFlipped(anchor.bottom + 12 + height > window.innerHeight)
-  }, [anchor])
 
   const hasLink = editor.isActive('link')
 

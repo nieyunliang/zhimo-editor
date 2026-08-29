@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useEditorState, type Editor } from '@tiptap/react'
 import { NodeSelection } from '@tiptap/pm/state'
 import { Bold, Italic, Underline, Strikethrough, Code, Link2 } from 'lucide-react'
 import { ToolButton } from '../toolbar/Button'
 import { ToolDivider } from '../toolbar/Divider'
+import { usePopoverAnchor, usePopoverFlip } from '../utils/popover'
 
 interface BubbleMenuProps {
   editor: Editor
@@ -26,8 +27,6 @@ function getSelectionRect(): { top: number; bottom: number; left: number } | nul
 
 /** 选中文本浮动菜单：加粗/斜体/下划线/删除线/行内代码/链接 */
 export function BubbleMenu({ editor, onOpenLink }: BubbleMenuProps) {
-  const [rect, setRect] = useState<{ top: number; bottom: number; left: number } | null>(null)
-  const [flipped, setFlipped] = useState(false)
   const boxRef = useRef<HTMLDivElement>(null)
 
   const state = useEditorState({
@@ -45,39 +44,17 @@ export function BubbleMenu({ editor, onOpenLink }: BubbleMenuProps) {
     },
   })
 
-  useEffect(() => {
-    const update = () => {
-      const sel = editor.state.selection
-      const isNodeSel = sel instanceof NodeSelection
-      const isCellSel = (sel as { isCellSelection?: boolean }).isCellSelection === true
-      if (sel.empty || isNodeSel || isCellSel || !editor.isFocused) {
-        setRect(null)
-        return
-      }
-      setRect(getSelectionRect())
-    }
-    editor.on('selectionUpdate', update)
-    editor.on('transaction', update)
-    editor.on('focus', update)
-    editor.on('blur', update)
-    window.addEventListener('scroll', update, true)
-    window.addEventListener('resize', update)
-    return () => {
-      editor.off('selectionUpdate', update)
-      editor.off('transaction', update)
-      editor.off('focus', update)
-      editor.off('blur', update)
-      window.removeEventListener('scroll', update, true)
-      window.removeEventListener('resize', update)
-    }
-  }, [editor])
+  // 选区变化 / 滚动 / 缩放时复测锚点；空选区、节点选区与单元格选区不显示
+  const rect = usePopoverAnchor(editor, () => {
+    const sel = editor.state.selection
+    const isNodeSel = sel instanceof NodeSelection
+    const isCellSel = (sel as { isCellSelection?: boolean }).isCellSelection === true
+    if (sel.empty || isNodeSel || isCellSel || !editor.isFocused) return null
+    return getSelectionRect()
+  })
 
   // 翻转：下方放不下时显示在选区上方
-  useEffect(() => {
-    if (!rect || !boxRef.current) return
-    const { height } = boxRef.current.getBoundingClientRect()
-    setFlipped(rect.bottom + 12 + height > window.innerHeight)
-  }, [rect])
+  const flipped = usePopoverFlip(rect, boxRef)
 
   if (!rect || !state) return null
 

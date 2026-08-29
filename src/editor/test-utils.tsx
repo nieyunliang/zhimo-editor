@@ -54,3 +54,16 @@ export function pasteImageFile(editor: Editor, file: File) {
     editor.view.dom.dispatchEvent(ev)
   })
 }
+
+/** 向编辑器 DOM 派发携带图片文件的 drop 事件（模拟拖拽图片） */
+export function dropImageFile(editor: Editor, file: File, x = 10, y = 10) {
+  const ev = new Event('drop', { bubbles: true, cancelable: true })
+  Object.defineProperty(ev, 'dataTransfer', {
+    value: { files: [file], types: ['Files'] },
+  })
+  Object.defineProperty(ev, 'clientX', { value: x })
+  Object.defineProperty(ev, 'clientY', { value: y })
+  act(() => {
+    editor.view.dom.dispatchEvent(ev)
+  })
+}

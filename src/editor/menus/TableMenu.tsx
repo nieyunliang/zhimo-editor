@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { Editor } from '@tiptap/react'
 import {
@@ -10,49 +9,24 @@ import {
   Columns3,
   Trash2,
 } from 'lucide-react'
+import { usePopoverAnchor } from '../utils/popover'
 
 interface TableMenuProps {
   editor: Editor
 }
 
-interface Anchor {
-  top: number
-  left: number
-}
-
 /** 表格上下文工具条：光标在表格内时显示插入/删除行列操作 */
 export function TableMenu({ editor }: TableMenuProps) {
-  const [anchor, setAnchor] = useState<Anchor | null>(null)
-
-  useEffect(() => {
-    const update = () => {
-      if (!editor.isFocused || !editor.isActive('table')) {
-        setAnchor(null)
-        return
-      }
-      try {
-        const coords = editor.view.coordsAtPos(editor.state.selection.from)
-        setAnchor({ top: coords.bottom, left: coords.left })
-      } catch {
-        setAnchor(null)
-      }
+  // 选区/滚动/缩放时复测锚点；失焦或光标不在表格内时关闭
+  const anchor = usePopoverAnchor(editor, () => {
+    if (!editor.isFocused || !editor.isActive('table')) return null
+    try {
+      const coords = editor.view.coordsAtPos(editor.state.selection.from)
+      return { top: coords.bottom, bottom: coords.bottom, left: coords.left }
+    } catch {
+      return null
     }
-    const onBlur = () => setAnchor(null)
-    editor.on('selectionUpdate', update)
-    editor.on('transaction', update)
-    editor.on('focus', update)
-    editor.on('blur', onBlur)
-    window.addEventListener('scroll', update, true)
-    window.addEventListener('resize', update)
-    return () => {
-      editor.off('selectionUpdate', update)
-      editor.off('transaction', update)
-      editor.off('focus', update)
-      editor.off('blur', onBlur)
-      window.removeEventListener('scroll', update, true)
-      window.removeEventListener('resize', update)
-    }
-  }, [editor])
+  })
 
   if (!anchor) return null
 

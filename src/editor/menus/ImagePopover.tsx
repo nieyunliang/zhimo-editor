@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { Editor } from '@tiptap/react'
 import { Image as ImageIcon, X } from 'lucide-react'
+import { usePopoverAnchor } from '../utils/popover'
 
 interface ImagePopoverProps {
   editor: Editor
@@ -14,23 +15,31 @@ interface ImagePopoverProps {
 /** 图片插入弹层：URL 插入 / 本地上传 */
 export function ImagePopover({ editor, open, uploadImage, onClose }: ImagePopoverProps) {
   const [url, setUrl] = useState('')
-  const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
-  // 打开时定位到选区（外部系统同步）；表单状态由 key 重建保证重置
+  // 打开时定位到选区；jsdom/SSR 无 DOM 测量时保持隐藏（anchor 为 null）
+  // 表单状态由 key 重建保证重置
+  const anchor = usePopoverAnchor(
+    editor,
+    () => {
+      if (!open) return null
+      try {
+        const { from } = editor.state.selection
+        const coords = editor.view.coordsAtPos(from)
+        return { top: coords.bottom, bottom: coords.bottom, left: coords.left }
+      } catch {
+        return null
+      }
+    },
+    [open],
+  )
+
+  // 打开时聚焦输入框（外部系统同步）
   useEffect(() => {
     if (!open) return
-    try {
-      const { from } = editor.state.selection
-      const coords = editor.view.coordsAtPos(from)
-      // oxlint-disable-next-line react/set-state-in-effect -- 定位结果写入状态是外部系统同步的正当用法
-      setPos({ top: coords.bottom, left: coords.left })
-    } catch {
-      // 环境不支持 DOM 测量时保持隐藏（初始 pos 为 null）
-    }
     requestAnimationFrame(() => inputRef.current?.focus())
   }, [open, editor])
 
@@ -57,12 +66,12 @@ export function ImagePopover({ editor, open, uploadImage, onClose }: ImagePopove
     }
   }
 
-  if (!open || !pos) return null
+  if (!open || !anchor) return null
 
   return createPortal(
     <div
       className="zm-image-popover zm-popover"
-      style={{ top: pos.top, left: pos.left, transform: 'translateY(8px)' }}
+      style={{ top: anchor.top, left: anchor.left, transform: 'translateY(8px)' }}
       onMouseDown={(e) => e.stopPropagation()}
       role="dialog"
       aria-label="插入图片"

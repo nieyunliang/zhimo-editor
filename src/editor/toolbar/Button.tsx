@@ -27,7 +27,8 @@ export function ToolButton({
       data-tooltip={tooltip}
       disabled={disabled}
       aria-label={label}
-      aria-pressed={active ?? false}
+      // 仅 toggle 类按钮声明 active 时携带 aria-pressed；动作按钮（撤销/插入等）不应播报按下状态
+      aria-pressed={active}
       onClick={onClick}
     >
       <Icon size={16} strokeWidth={2} aria-hidden />
