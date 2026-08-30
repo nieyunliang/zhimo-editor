@@ -64,7 +64,11 @@ export function useZhimoEditor(props: ZhimoEditorProps): Editor | null {
 
   // 受控模式：外部 value 变化时同步文档；内容相同时跳过以避免光标重置
   useEffect(() => {
-    if (!editor || value === undefined) return
+    // 编辑器可能在渲染后、被动 effect 执行前被销毁重建（TipTap v3
+    // useEditor 的 1ms 延迟销毁与 React 异步被动 effect 存在竞态）：
+    // 此时调用 getHTML 会命中已清空的 schema（null.cached）直接抛错，
+    // 必须跳过，等新实例替换后再同步（新实例创建时已带上最新 value）。
+    if (!editor || editor.isDestroyed || value === undefined) return
     const current = serializeContent(editor, format)
     if (current === value) return
     // JSON 格式下外部值必须是合法 JSON：解析失败（典型场景是 html → json

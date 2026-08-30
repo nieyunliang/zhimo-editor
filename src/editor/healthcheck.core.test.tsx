@@ -142,6 +142,28 @@ describe('体检：受控模式健壮性', () => {
     expect(document.querySelector('.tiptap')?.textContent).toContain('重要内容')
   })
 
+  it('编辑器被销毁后外部 value 变化不抛错（销毁竞态回归）', async () => {
+    // TipTap v3 useEditor 存在「渲染时创建、1ms 后延迟销毁」与 React 异步
+    // 被动 effect 的竞态：值同步 effect 可能拿到已销毁（schema 为 null）的
+    // 实例并在 getHTML 中抛 null.cached。此处直接销毁实例后变更 value，
+    // 复现同一调用序列：不得抛错，且新实例创建后内容仍与外部值一致。
+    let editor: import('@tiptap/react').Editor | null = null
+    const { rerender } = render(
+      <ZhimoEditor value="<p>v1</p>" onChange={() => {}} onCreate={(e) => (editor = e)} />,
+    )
+    await waitFor(() => expect(editor).toBeTruthy())
+    expect(editor!.isDestroyed).toBe(false)
+    act(() => editor!.destroy())
+    expect(editor!.isDestroyed).toBe(true)
+    // 销毁后外部值变化：旧实例上不应访问 getHTML（此前这里抛
+    // Cannot read properties of null (reading 'cached')）
+    rerender(
+      <ZhimoEditor value="<p>v2</p>" onChange={() => {}} onCreate={(e) => (editor = e)} />,
+    )
+    await new Promise((r) => setTimeout(r, 50))
+    expect(document.querySelector('.tiptap')?.textContent).toContain('v2')
+  })
+
   it('非法 JSON 外部值不会清空文档', async () => {
     let editor: import('@tiptap/react').Editor | null = null
     const { rerender } = render(
