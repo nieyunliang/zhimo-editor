@@ -22,7 +22,7 @@
 
 ```bash
 npm install zhimo-editor
-# 依赖（peer）：react、react-dom、@tiptap/*（v3）、lucide-react
+# 依赖（peer）：react、react-dom；TipTap v3 与 lucide-react 已内置进产物，无需单独安装
 ```
 
 ```tsx

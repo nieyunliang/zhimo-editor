@@ -5,6 +5,7 @@
 ## Unreleased
 
 ### 工程 / 质量
+- 构建产物内置 TipTap v3（含 prosemirror）与 lucide-react，使用方零 tiptap / 图标库运行时依赖；`peerDependencies` 仅保留 react / react-dom
 - 开启 TypeScript `strict`（app 与 node 配置），`vite.lib.config.ts` 纳入类型检查
 - lint 排除构建产物（`dist/**`、`dist-playground/**`），lint 输出恢复纯净
 - `dist/` 移出版本控制并加入 `.gitignore`（产物由 `prepare` 构建）
