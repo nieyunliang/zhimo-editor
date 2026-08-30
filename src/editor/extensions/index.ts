@@ -38,7 +38,19 @@ export function buildExtensions(options: BuildExtensionsOptions): AnyExtension[]
           target: '_blank',
         },
       }),
-      ZhimoImage.configure({ inline: false }),
+      // 图片：开箱即用等比缩放（右下角把手）；allowBase64 允许内置
+      // dataURL 上传器插入的 base64 src 在 HTML 往返解析时保留
+      ZhimoImage.configure({
+        inline: false,
+        allowBase64: true,
+        resize: {
+          enabled: true,
+          directions: ['bottom-right'],
+          minWidth: 40,
+          minHeight: 40,
+          alwaysPreserveAspectRatio: true,
+        },
+      }),
       options.uploadImage
         ? ImageUpload.configure({ uploadImage: options.uploadImage })
         : ImageUpload,

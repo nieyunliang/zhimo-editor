@@ -7,14 +7,17 @@ import {
   type CommandContext,
   type EditorCommand,
 } from '../commands'
-import { usePopoverAnchor, usePopoverFlip } from '../utils/popover'
+import { usePopoverAnchor, usePopoverFlip, type PopoverContainer } from '../utils/popover'
+import type { ImageInsertAnchor } from '../types'
 
 interface SlashMenuProps {
   editor: Editor
   /** 链接项点击后调用（编辑器已插入占位文本并选中） */
   onOpenLink: () => void
-  /** 图片项点击后调用 */
-  onOpenImage: () => void
+  /** 图片项点击后调用；传入锚点以定位图片插入面板 */
+  onOpenImage: (anchor?: ImageInsertAnchor) => void
+  /** 挂载容器：编辑器根节点（保证作用域样式与主题变量生效） */
+  container?: PopoverContainer
 }
 
 interface MenuState {
@@ -25,7 +28,7 @@ interface MenuState {
 }
 
 /** 斜杠命令菜单：输入 / 触发，支持过滤与键盘导航 */
-export function SlashMenu({ editor, onOpenLink, onOpenImage }: SlashMenuProps) {
+export function SlashMenu({ editor, onOpenLink, onOpenImage, container }: SlashMenuProps) {
   const [state, setState] = useState<MenuState | null>(null)
   const [activeIndex, setActiveIndex] = useState(0)
   const boxRef = useRef<HTMLDivElement>(null)
@@ -198,6 +201,6 @@ export function SlashMenu({ editor, onOpenLink, onOpenImage }: SlashMenuProps) {
         )
       })}
     </div>,
-    document.body,
+    container?.current ?? document.body,
   )
 }

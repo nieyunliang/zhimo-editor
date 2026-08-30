@@ -230,49 +230,123 @@ describe('体检：图片插入弹层', () => {
     await waitFor(() => expect(screen.queryByRole('dialog', { name: '插入图片' })).toBeNull())
   })
 
-  it('未配置 uploadImage 时无上传入口', async () => {
+  it('弹层挂载在编辑器根节点内（作用域样式/主题变量生效，不落到 body 末尾）', async () => {
     const { getEditor } = renderEditor({})
     const dialog = await openImageDialog(getEditor)
-    expect(within(dialog).queryByRole('button', { name: '上传本地图片' })).toBeNull()
-    expect(document.querySelector('input[type="file"]')).toBeNull()
+    // 回归防护：曾以 createPortal(…, document.body) 渲染，导致
+    // `.zhimo-editor .zm-popover`（fixed 定位）与 --zm-* 主题变量全部失效，
+    // 弹层变成页面底部（body 末尾）的无样式输入框
+    expect(dialog.parentElement).not.toBe(document.body)
+    expect(dialog.closest('.zhimo-editor')).toBeTruthy()
   })
 
-  it('配置 uploadImage 后本地上传成功插入', async () => {
-    const { promise, resolve } = deferred<string>()
-    const uploadImage = vi.fn(() => promise)
-    const { getEditor } = renderEditor({ uploadImage })
+  it('未配置 uploadImage 时仍保留上传入口（内置 FileReader dataURL）', async () => {
+    const { getEditor } = renderEditor({})
     const dialog = await openImageDialog(getEditor)
-
-    const file = new File(['x'], 'a.png', { type: 'image/png' })
-    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement
-    fireEvent.change(fileInput, { target: { files: [file] } })
-    expect(uploadImage).toHaveBeenCalledWith(file)
-    await waitFor(() =>
-      expect(within(dialog).getByRole('button', { name: '上传中…' })).toBeTruthy(),
-    )
-    act(() => resolve('https://cdn.example.com/a.png'))
-    await waitFor(() =>
-      expect(getEditor()!.getHTML()).toContain('src="https://cdn.example.com/a.png"'),
-    )
-  })
-
-  it('本地上传失败展示错误并保留弹层', async () => {
-    const { promise, reject } = deferred<string>()
-    const uploadImage = vi.fn(() => promise)
-    const { getEditor } = renderEditor({ uploadImage })
-    const dialog = await openImageDialog(getEditor)
+    expect(within(dialog).getByRole('button', { name: '上传本地图片' })).toBeTruthy()
 
     const file = new File(['x'], 'a.png', { type: 'image/png' })
     fireEvent.change(document.querySelector('input[type="file"]') as HTMLInputElement, {
       target: { files: [file] },
     })
-    act(() => reject(new Error('boom')))
+    // 选文件后面板立即关闭，内置上传替换占位为 dataURL image
     await waitFor(() =>
-      expect(within(dialog).getByText('图片上传失败，请重试')).toBeTruthy(),
+      expect(screen.queryByRole('dialog', { name: '插入图片' })).toBeNull(),
     )
-    expect(getEditor()!.getHTML()).not.toContain('<img')
-    // 恢复后可重试
-    expect(within(dialog).getByRole('button', { name: '上传本地图片' })).toBeTruthy()
+    await waitFor(() => {
+      const html = getEditor()!.getHTML()
+      expect(html).toContain('src="data:image/png;base64,')
+      expect(html).not.toContain('data-uploading')
+    })
+  })
+
+  it('配置 uploadImage 后本地上传成功插入：选文件即关面板 → 占位 → 替换', async () => {
+    const { promise, resolve } = deferred<string>()
+    const uploadImage = vi.fn(() => promise)
+    const { getEditor } = renderEditor({ uploadImage, defaultValue: '<p>段落</p>' })
+    await openImageDialog(getEditor)
+
+    const file = new File(['x'], 'a.png', { type: 'image/png' })
+    fireEvent.change(document.querySelector('input[type="file"]') as HTMLInputElement, {
+      target: { files: [file] },
+    })
+    expect(uploadImage).toHaveBeenCalledWith(file)
+    // 选文件后面板立即关闭，插入流程交给编辑器（占位 → 替换）
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog', { name: '插入图片' })).toBeNull(),
+    )
+    await waitFor(() =>
+      expect(getEditor()!.getHTML()).toContain('data-uploading="true"'),
+    )
+    act(() => resolve('https://cdn.example.com/a.png'))
+    await waitFor(() => {
+      expect(getEditor()!.getHTML()).toContain('src="https://cdn.example.com/a.png"')
+      expect(getEditor()!.getHTML()).not.toContain('data-uploading')
+    })
+  })
+
+  it('本地上传失败：面板已关闭、占位回滚并弹出错误提示', async () => {
+    const { promise, reject } = deferred<string>()
+    const { getEditor } = renderEditor({ uploadImage: vi.fn(() => promise) })
+    await openImageDialog(getEditor)
+
+    fireEvent.change(document.querySelector('input[type="file"]') as HTMLInputElement, {
+      target: { files: [new File(['x'], 'a.png', { type: 'image/png' })] },
+    })
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog', { name: '插入图片' })).toBeNull(),
+    )
+    act(() => reject(new Error('boom')))
+    await waitFor(() => {
+      expect(getEditor()!.getHTML()).not.toContain('<img')
+      expect(getEditor()!.getHTML()).not.toContain('data-uploading')
+    })
+    const alert = await screen.findByRole('alert')
+    expect(alert.textContent).toContain('图片上传失败，请重试')
+  })
+
+  it('Esc 关闭面板', async () => {
+    const { getEditor } = renderEditor({})
+    const dialog = await openImageDialog(getEditor)
+    const input = within(dialog).getByPlaceholderText('输入图片 URL')
+    fireEvent.keyDown(input, { key: 'Escape' })
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog', { name: '插入图片' })).toBeNull(),
+    )
+  })
+
+  it('再次点击图片按钮 toggle 关闭面板', async () => {
+    renderEditor({})
+    const btn = screen.getByRole('button', { name: '图片' })
+    await userEvent.click(btn)
+    await screen.findByRole('dialog', { name: '插入图片' })
+    await userEvent.click(btn)
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog', { name: '插入图片' })).toBeNull(),
+    )
+  })
+
+  it('点击面板外关闭面板', async () => {
+    const { getEditor } = renderEditor({})
+    await openImageDialog(getEditor)
+    fireEvent.mouseDown(document.body)
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog', { name: '插入图片' })).toBeNull(),
+    )
+  })
+
+  it('重开面板时表单重置（key 重建）', async () => {
+    const { getEditor } = renderEditor({})
+    const dialog = await openImageDialog(getEditor)
+    await userEvent.type(within(dialog).getByPlaceholderText('输入图片 URL'), 'https://x')
+    fireEvent.keyDown(within(dialog).getByPlaceholderText('输入图片 URL'), { key: 'Escape' })
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog', { name: '插入图片' })).toBeNull(),
+    )
+    const dialog2 = await openImageDialog(getEditor)
+    expect(
+      (within(dialog2).getByPlaceholderText('输入图片 URL') as HTMLInputElement).value,
+    ).toBe('')
   })
 })
 
@@ -309,14 +383,18 @@ describe('体检：图片粘贴上传', () => {
     expect(alert.textContent).toContain('图片上传失败，请重试')
   })
 
-  it('未配置 uploadImage：粘贴图片被拦截并提示', async () => {
+  it('未配置 uploadImage：粘贴图片走内置上传（dataURL）', async () => {
     const { getEditor } = renderEditor({ defaultValue: '<p>段落</p>' })
     const editor = await editorReady(getEditor)
-    const file = new File(['x'], 'a.png', { type: 'image/png' })
-    pasteImageFile(editor, file)
-    const alert = await screen.findByRole('alert')
-    expect(alert.textContent).toContain('未配置图片上传，请使用 URL 插入')
-    expect(editor.getHTML()).not.toContain('<img')
+    pasteImageFile(editor, new File(['x'], 'a.png', { type: 'image/png' }))
+    await waitFor(() => expect(editor.getHTML()).toContain('data-uploading="true"'))
+    await waitFor(() => {
+      const html = editor.getHTML()
+      expect(html).toContain('src="data:image/png;base64,')
+      expect(html).not.toContain('data-uploading')
+    })
+    // 不再出现「未配置上传」拦截提示
+    expect(screen.queryByRole('alert')).toBeNull()
   })
 
   it('非图片文件粘贴不受影响', async () => {
@@ -328,6 +406,19 @@ describe('体检：图片粘贴上传', () => {
     await new Promise((r) => setTimeout(r, 50))
     expect(uploadImage).not.toHaveBeenCalled()
     expect(editor.getHTML()).not.toContain('<img')
+  })
+
+  it('uploadImage 同步抛出：移除占位并提示', async () => {
+    const uploadImage = vi.fn(() => {
+      throw new Error('boom')
+    })
+    const { getEditor } = renderEditor({ uploadImage, defaultValue: '<p>段落</p>' })
+    const editor = await editorReady(getEditor)
+    pasteImageFile(editor, new File(['x'], 'a.png', { type: 'image/png' }))
+    await waitFor(() => expect(editor.getHTML()).not.toContain('<img'))
+    expect(uploadImage).toHaveBeenCalled()
+    const alert = await screen.findByRole('alert')
+    expect(alert.textContent).toContain('图片上传失败，请重试')
   })
 })
 
@@ -348,13 +439,17 @@ describe('体检：图片拖拽上传', () => {
     })
   })
 
-  it('未配置 uploadImage：拖拽图片被拦截并提示（与粘贴一致）', async () => {
+  it('未配置 uploadImage：拖拽图片走内置上传（dataURL，与粘贴一致）', async () => {
     const { getEditor } = renderEditor({ defaultValue: '<p>段落</p>' })
     const editor = await editorReady(getEditor)
     dropImageFile(editor, new File(['x'], 'b.png', { type: 'image/png' }))
-    const alert = await screen.findByRole('alert')
-    expect(alert.textContent).toContain('未配置图片上传，请使用 URL 插入')
-    expect(editor.getHTML()).not.toContain('<img')
+    await waitFor(() => expect(editor.getHTML()).toContain('data-uploading="true"'))
+    await waitFor(() => {
+      const html = editor.getHTML()
+      expect(html).toContain('src="data:image/png;base64,')
+      expect(html).not.toContain('data-uploading')
+    })
+    expect(screen.queryByRole('alert')).toBeNull()
   })
 
   it('并发上传：完成顺序颠倒时各占位精确落位（不串图）', async () => {
@@ -385,6 +480,174 @@ describe('体检：图片拖拽上传', () => {
       expect(editor.getHTML()).toContain('src="https://cdn.example.com/fast.png"')
       expect(editor.getHTML()).not.toContain('data-uploading')
     })
+  })
+})
+
+describe('体检：只读模式图片上传守卫', () => {
+  it('disabled：粘贴图片不触发上传、不插入内容', async () => {
+    const uploadImage = vi.fn()
+    const { getEditor } = renderEditor({
+      disabled: true,
+      uploadImage,
+      defaultValue: '<p>只读内容</p>',
+    })
+    const editor = await editorReady(getEditor)
+    pasteImageFile(editor, new File(['x'], 'a.png', { type: 'image/png' }))
+    await new Promise((r) => setTimeout(r, 50))
+    expect(uploadImage).not.toHaveBeenCalled()
+    expect(editor.getHTML()).not.toContain('<img')
+  })
+
+  it('disabled：拖拽图片不触发上传、不插入内容', async () => {
+    const uploadImage = vi.fn()
+    const { getEditor } = renderEditor({
+      disabled: true,
+      uploadImage,
+      defaultValue: '<p>只读内容</p>',
+    })
+    const editor = await editorReady(getEditor)
+    dropImageFile(editor, new File(['x'], 'b.png', { type: 'image/png' }))
+    await new Promise((r) => setTimeout(r, 50))
+    expect(uploadImage).not.toHaveBeenCalled()
+    expect(editor.getHTML()).not.toContain('<img')
+  })
+
+  it('disabled：uploadAndInsertImage 命令拒绝执行', async () => {
+    const uploadImage = vi.fn()
+    const { getEditor } = renderEditor({
+      disabled: true,
+      uploadImage,
+      defaultValue: '<p>只读内容</p>',
+    })
+    const editor = await editorReady(getEditor)
+    let result = true
+    act(() => {
+      result = editor.commands.uploadAndInsertImage(
+        new File(['x'], 'c.png', { type: 'image/png' }),
+      )
+    })
+    expect(result).toBe(false)
+    expect(uploadImage).not.toHaveBeenCalled()
+    expect(editor.getHTML()).not.toContain('<img')
+  })
+})
+
+describe('体检：uploadAndInsertImage 命令', () => {
+  it('上传成功：先占位后替换为真实图片', async () => {
+    const { promise, resolve } = deferred<string>()
+    const uploadImage = vi.fn(() => promise)
+    const { getEditor } = renderEditor({ uploadImage, defaultValue: '<p>段落</p>' })
+    const editor = await editorReady(getEditor)
+    const file = new File(['x'], 'c.png', { type: 'image/png' })
+    act(() => {
+      editor.commands.uploadAndInsertImage(file)
+    })
+    expect(uploadImage).toHaveBeenCalledWith(file)
+    await waitFor(() => expect(editor.getHTML()).toContain('data-uploading="true"'))
+    act(() => resolve('https://cdn.example.com/c.png'))
+    await waitFor(() => {
+      expect(editor.getHTML()).toContain('src="https://cdn.example.com/c.png"')
+      expect(editor.getHTML()).not.toContain('data-uploading')
+    })
+  })
+
+  it('上传失败：移除占位并广播 imageUploadError', async () => {
+    const { promise, reject } = deferred<string>()
+    const uploadImage = vi.fn(() => promise)
+    const { getEditor } = renderEditor({ uploadImage, defaultValue: '<p>段落</p>' })
+    const editor = await editorReady(getEditor)
+    act(() => {
+      editor.commands.uploadAndInsertImage(
+        new File(['x'], 'c.png', { type: 'image/png' }),
+      )
+    })
+    await waitFor(() => expect(editor.getHTML()).toContain('data-uploading="true"'))
+    const error = vi.fn()
+    editor.on('imageUploadError', error)
+    act(() => reject(new Error('boom')))
+    await waitFor(() => expect(editor.getHTML()).not.toContain('<img'))
+    expect(error).toHaveBeenCalledWith({ message: '图片上传失败，请重试' })
+  })
+})
+
+describe('体检：图片缩放', () => {
+  it('插入图片后渲染缩放容器与右下角把手（可编辑态）', async () => {
+    const { getEditor } = renderEditor({ defaultValue: '<p>段落</p>' })
+    const editor = await editorReady(getEditor)
+    act(() => {
+      editor.commands.setImage({ src: 'https://a.com/x.png', width: 100, height: 75 })
+    })
+    await waitFor(() =>
+      expect(document.querySelector('[data-resize-container]')).toBeTruthy(),
+    )
+    expect(
+      document.querySelector('[data-resize-handle="bottom-right"]'),
+    ).toBeTruthy()
+  })
+
+  it('拖拽右下角把手：等比缩放并提交 width/height 属性', async () => {
+    const { getEditor } = renderEditor({ defaultValue: '<p>段落</p>' })
+    const editor = await editorReady(getEditor)
+    act(() => {
+      editor.commands.setImage({ src: 'https://a.com/x.png', width: 100, height: 75 })
+    })
+    const handle = (await waitFor(
+      () => document.querySelector('[data-resize-handle]') as HTMLElement,
+    ))!
+    const img = document.querySelector('[data-resize-wrapper] img') as HTMLImageElement
+    // jsdom 无布局：让 offsetWidth/offsetHeight 从 style 反解，模拟真实布局尺寸
+    Object.defineProperty(img, 'offsetWidth', {
+      configurable: true,
+      get: () => parseFloat(img.style.width) || 100,
+    })
+    Object.defineProperty(img, 'offsetHeight', {
+      configurable: true,
+      get: () => parseFloat(img.style.height) || 75,
+    })
+    act(() => {
+      handle.dispatchEvent(
+        new MouseEvent('mousedown', { clientX: 100, clientY: 100, bubbles: true }),
+      )
+      document.dispatchEvent(new MouseEvent('mousemove', { clientX: 160, clientY: 160 }))
+      document.dispatchEvent(new MouseEvent('mouseup', { clientX: 160, clientY: 160 }))
+    })
+    await waitFor(() => {
+      const html = editor.getHTML()
+      expect(html).toContain('width="160"')
+      expect(html).toContain('height="120"')
+    })
+  })
+
+  it('只读模式不渲染缩放把手', async () => {
+    const { getEditor } = renderEditor({ disabled: true, defaultValue: '<p>段落</p>' })
+    const editor = await editorReady(getEditor)
+    act(() => {
+      editor.commands.setImage({ src: 'https://a.com/x.png' })
+    })
+    await new Promise((r) => setTimeout(r, 50))
+    expect(document.querySelector('[data-resize-handle]')).toBeNull()
+  })
+
+  it('dataURL 图片在 HTML 往返解析中保留（allowBase64）', async () => {
+    const { getEditor } = renderEditor({})
+    const editor = await editorReady(getEditor)
+    const src = 'data:image/png;base64,eA=='
+    act(() => {
+      editor.commands.setContent(`<p>段落</p><img src="${src}">`)
+    })
+    expect(editor.getHTML()).toContain(src)
+    expect(editor.getJSON().content?.some((n) => n.type === 'image')).toBe(true)
+  })
+
+  it('width/height 属性随 HTML 往返保留', async () => {
+    const { getEditor } = renderEditor({})
+    const editor = await editorReady(getEditor)
+    act(() => {
+      editor.commands.setContent('<img src="https://a.com/x.png" width="320" height="240">')
+    })
+    const html = editor.getHTML()
+    expect(html).toContain('width="320"')
+    expect(html).toContain('height="240"')
   })
 })
 

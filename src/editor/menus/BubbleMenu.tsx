@@ -5,11 +5,13 @@ import { NodeSelection } from '@tiptap/pm/state'
 import { Bold, Italic, Underline, Strikethrough, Code, Link2 } from 'lucide-react'
 import { ToolButton } from '../toolbar/Button'
 import { ToolDivider } from '../toolbar/Divider'
-import { usePopoverAnchor, usePopoverFlip } from '../utils/popover'
+import { usePopoverAnchor, usePopoverFlip, type PopoverContainer } from '../utils/popover'
 
 interface BubbleMenuProps {
   editor: Editor
   onOpenLink: () => void
+  /** 挂载容器：编辑器根节点（保证作用域样式与主题变量生效） */
+  container?: PopoverContainer
 }
 
 /** 获取当前 DOM 选区矩形（视口坐标） */
@@ -26,7 +28,7 @@ function getSelectionRect(): { top: number; bottom: number; left: number } | nul
 }
 
 /** 选中文本浮动菜单：加粗/斜体/下划线/删除线/行内代码/链接 */
-export function BubbleMenu({ editor, onOpenLink }: BubbleMenuProps) {
+export function BubbleMenu({ editor, onOpenLink, container }: BubbleMenuProps) {
   const boxRef = useRef<HTMLDivElement>(null)
 
   const state = useEditorState({
@@ -113,6 +115,6 @@ export function BubbleMenu({ editor, onOpenLink }: BubbleMenuProps) {
         onClick={onOpenLink}
       />
     </div>,
-    document.body,
+    container?.current ?? document.body,
   )
 }

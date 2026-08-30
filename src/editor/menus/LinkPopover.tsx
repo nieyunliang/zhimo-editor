@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { Editor } from '@tiptap/react'
 import { Link2, Link2Off, X } from 'lucide-react'
-import { usePopoverAnchor, usePopoverFlip } from '../utils/popover'
+import { usePopoverAnchor, usePopoverFlip, type PopoverContainer } from '../utils/popover'
 
 export interface LinkPopoverState {
   open: boolean
@@ -13,11 +13,13 @@ export interface LinkPopoverState {
 interface LinkPopoverProps {
   editor: Editor
   state: LinkPopoverState | null
+  /** 挂载容器：编辑器根节点（保证作用域样式与主题变量生效） */
+  container?: PopoverContainer
   onClose: () => void
 }
 
 /** 链接编辑弹层：设置 / 移除链接 */
-export function LinkPopover({ editor, state, onClose }: LinkPopoverProps) {
+export function LinkPopover({ editor, state, container, onClose }: LinkPopoverProps) {
   // 表单状态由 key 重建保证每次打开重置（url 初始值取当前链接）
   const [url, setUrl] = useState(state?.url ?? '')
   const inputRef = useRef<HTMLInputElement>(null)
@@ -122,6 +124,6 @@ export function LinkPopover({ editor, state, onClose }: LinkPopoverProps) {
         </button>
       </div>
     </div>,
-    document.body,
+    container?.current ?? document.body,
   )
 }

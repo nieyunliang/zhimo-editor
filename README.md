@@ -10,7 +10,7 @@
 - **浮动气泡菜单**：选中文本即出现格式操作
 - **斜杠命令菜单**：输入 `/` 弹出分组命令面板，支持关键字过滤与键盘导航（`↑` `↓` `Enter` `Esc`）
 - **表格增强**：光标进入表格自动出现上下文工具条（插入 / 删除行列、删除表格）
-- **图片**：URL 插入、粘贴 / 拖拽上传（配置 `uploadImage` 后自动启用，含上传中占位与失败回滚）
+- **图片**：URL 插入、上传开箱即用（粘贴 / 拖拽 / 面板上传；未配置 `uploadImage` 时内置 FileReader 转 dataURL，含上传中占位与失败回滚）、**拖拽等比缩放**（右下角把手，尺寸写入 `width`/`height` 属性随内容保存）
 - **链接编辑**：设置 / 移除链接弹层，外链自动 `noopener noreferrer` 安全属性
 - **双模式**：受控（`value` + `onChange`）与非受控（`defaultValue`）
 - **双格式**：HTML / JSON 内容序列化
@@ -61,7 +61,13 @@ const [html, setHtml] = useState('<p>受控内容</p>')
 />
 ```
 
-配置后编辑器内粘贴 / 拖拽图片文件即自动上传插入；未配置时粘贴图片会给出提示，仅支持 URL 插入。
+配置后粘贴 / 拖拽 / 面板上传均走自定义上传回调；未配置时使用内置 FileReader 将图片转为 dataURL 插入，
+上传入口始终可用。数据量较大的图片建议配置服务端上传（返回图片 URL），避免文档体积膨胀。
+
+工具栏「图片」按钮（或斜杠 `/` → 图片）会弹出插入面板：锚定触发位置（按钮/触发行），
+提供「上传本地图片」与「URL 插入」两个入口。选文件后面板立即关闭，编辑区出现上传占位，
+与粘贴/拖拽共用同一套「占位 → 成功替换 / 失败回滚」流程，失败由编辑区错误提示条反馈。
+Esc / 点击外部 / 再次点击图片按钮可关闭面板。
 
 ### 自定义扩展
 
@@ -81,7 +87,7 @@ import Underline from '@tiptap/extension-underline'
 | `onChange` | `(content: string) => void` | — | 内容变化回调 |
 | `placeholder` | `string` | `请输入内容…` | 空文档占位符 |
 | `disabled` | `boolean` | `false` | 只读模式 |
-| `uploadImage` | `(file: File) => Promise<string>` | — | 图片上传回调 |
+| `uploadImage` | `(file: File) => Promise<string>` | — | 图片上传回调（未配置时内置 FileReader 转 dataURL） |
 | `extensions` | `AnyExtension[]` | — | 追加 / 覆盖扩展 |
 | `toolbar` | `boolean \| ReactNode` | `true` | 内置工具栏开关或自定义工具栏 |
 | `bubbleMenu` | `boolean` | `true` | 选中浮动菜单开关 |

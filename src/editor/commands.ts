@@ -15,6 +15,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { modKey } from './utils/platform'
+import type { ImageInsertAnchor } from './types'
 
 /**
  * 命令执行上下文：需要打开弹层的命令（链接/图片）以回调联动。
@@ -22,7 +23,8 @@ import { modKey } from './utils/platform'
  */
 export interface CommandContext {
   openLink: () => void
-  openImage: () => void
+  /** 打开图片插入面板；anchor 缺省时由调用方以当前选区定位（斜杠触发处） */
+  openImage: (anchor?: ImageInsertAnchor) => void
 }
 
 /** 命令分组（工具栏与斜杠菜单共用） */

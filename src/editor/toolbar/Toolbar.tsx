@@ -1,3 +1,4 @@
+import { useRef } from 'react'
 import type { Editor } from '@tiptap/react'
 import { useEditorState } from '@tiptap/react'
 import { Bold, Italic, Underline, Strikethrough, Code, Undo2, Redo2 } from 'lucide-react'
@@ -6,6 +7,7 @@ import { ToolDivider } from './Divider'
 import { BlockSelect } from './Select'
 import { EDITOR_COMMANDS, type CommandContext, type EditorCommand } from '../commands'
 import { modKey } from '../utils/platform'
+import type { ImageInsertAnchor } from '../types'
 
 /** 行内标记按钮（工具栏专属，不在斜杠菜单中出现） */
 const INLINE_MARKS = [
@@ -50,11 +52,13 @@ export function Toolbar({
 }: {
   editor: Editor
   onOpenLink: () => void
-  onOpenImage: () => void
+  /** 图片插入面板锚点：工具栏按钮自身（面板不再跟随光标） */
+  onOpenImage: (anchor?: ImageInsertAnchor) => void
   /** 只读模式：禁用全部操作按钮，避免绕过只读态修改内容 */
   disabled?: boolean
 }) {
   const s = useToolbarState(editor)
+  const imageBtnRef = useRef<HTMLButtonElement>(null)
   if (!s) return null
 
   const ctx: CommandContext = { openLink: onOpenLink, openImage: onOpenImage }
@@ -71,7 +75,7 @@ export function Toolbar({
         return
       }
       if (cmd.id === 'image') {
-        onOpenImage()
+        onOpenImage({ element: imageBtnRef.current ?? undefined })
         return
       }
       cmd.run(editor, ctx)
@@ -84,6 +88,7 @@ export function Toolbar({
         shortcut={cmd.shortcut}
         active={isActive}
         disabled={disabled}
+        buttonRef={cmd.id === 'image' ? imageBtnRef : undefined}
         onClick={onClick}
       />
     )

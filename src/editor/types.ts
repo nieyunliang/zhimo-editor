@@ -4,6 +4,19 @@ import type { AnyExtension, EditorEvents } from '@tiptap/core'
 /** 内容序列化格式 */
 export type ContentFormat = 'html' | 'json'
 
+/**
+ * 图片插入面板的锚点。
+ *
+ * 面板锚定「触发处」而非光标/选区：图片插入不需要选区上下文，
+ * 锚定按钮/触发行才能保证弹层位置稳定可预期。
+ */
+export interface ImageInsertAnchor {
+  /** 锚点元素（工具栏按钮）：面板打开期间随滚动/缩放实时复测矩形 */
+  element?: HTMLElement
+  /** 固定视口坐标锚点（斜杠命令触发行，格式 { top, bottom, left }） */
+  point?: { top: number; bottom: number; left: number }
+}
+
 export interface ZhimoEditorProps {
   /** 受控内容（与 onChange 配合使用）；格式由 `format` 决定 */
   value?: string
@@ -19,7 +32,8 @@ export interface ZhimoEditorProps {
   disabled?: boolean
   /**
    * 图片上传回调，返回图片 URL。
-   * 提供后支持粘贴/拖拽图片文件上传；未提供时仅支持 URL 插入。
+   * 提供后粘贴/拖拽/面板上传均走自定义上传；未提供时使用内置
+   * FileReader 转 dataURL（开箱即用；数据量较大时建议配置服务端上传）。
    */
   uploadImage?: (file: File) => Promise<string>
   /**

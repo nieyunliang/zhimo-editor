@@ -9,14 +9,16 @@ import {
   Columns3,
   Trash2,
 } from 'lucide-react'
-import { usePopoverAnchor } from '../utils/popover'
+import { usePopoverAnchor, type PopoverContainer } from '../utils/popover'
 
 interface TableMenuProps {
   editor: Editor
+  /** 挂载容器：编辑器根节点（保证作用域样式与主题变量生效） */
+  container?: PopoverContainer
 }
 
 /** 表格上下文工具条：光标在表格内时显示插入/删除行列操作 */
-export function TableMenu({ editor }: TableMenuProps) {
+export function TableMenu({ editor, container }: TableMenuProps) {
   // 选区/滚动/缩放时复测锚点；失焦或光标不在表格内时关闭
   const anchor = usePopoverAnchor(editor, () => {
     if (!editor.isFocused || !editor.isActive('table')) return null
@@ -108,6 +110,6 @@ export function TableMenu({ editor }: TableMenuProps) {
         <Trash2 size={14} aria-hidden />
       </button>
     </div>,
-    document.body,
+    container?.current ?? document.body,
   )
 }

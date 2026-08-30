@@ -8,6 +8,17 @@ export interface PopoverAnchor {
   left: number
 }
 
+/**
+ * 浮动 UI 的挂载容器引用。
+ *
+ * 库内全部弹层（图片/链接/气泡/斜杠/表格工具条）采用 fixed 定位并以
+ * createPortal 渲染；必须挂在 `.zhimo-editor` 根节点内部，否则：
+ * 1. 作用域样式 `.zhimo-editor .zm-popover`（position: fixed / z-index / 视觉）不命中；
+ * 2. `--zm-*` 主题变量（定义在 `.zhimo-editor` 上）无法继承。
+ * 两种情况都会让弹层变成 `<body>` 末尾的无样式块元素（堆到页面底部）。
+ */
+export type PopoverContainer = RefObject<HTMLElement | null>
+
 /** 触发锚点复测的编辑器事件 */
 const EDITOR_EVENTS = ['selectionUpdate', 'transaction', 'focus', 'blur'] as const
 

@@ -1,3 +1,4 @@
+import type { Ref } from 'react'
 import type { LucideIcon } from 'lucide-react'
 
 export interface ToolButtonProps {
@@ -7,6 +8,8 @@ export interface ToolButtonProps {
   active?: boolean
   disabled?: boolean
   onClick: () => void
+  /** 底层 button 元素引用（如「图片」按钮作为插入面板的定位锚点） */
+  buttonRef?: Ref<HTMLButtonElement>
 }
 
 /** 工具栏图标按钮（hover 显示中文 tooltip + 快捷键） */
@@ -17,10 +20,12 @@ export function ToolButton({
   active,
   disabled,
   onClick,
+  buttonRef,
 }: ToolButtonProps) {
   const tooltip = shortcut ? `${label}（${shortcut}）` : label
   return (
     <button
+      ref={buttonRef}
       type="button"
       className="zm-tool-btn"
       data-active={active ? 'true' : 'false'}

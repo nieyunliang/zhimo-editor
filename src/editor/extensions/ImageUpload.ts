@@ -48,8 +48,22 @@ declare module '@tiptap/core' {
 }
 
 export interface ImageUploadOptions {
-  /** 上传回调；未配置时命令返回 false */
+  /** 上传回调；未配置时使用内置 FileReader 转 dataURL（开箱即用） */
   uploadImage?: (file: File) => Promise<string>
+}
+
+/**
+ * 内置上传：FileReader 转 data URL。
+ * 使「上传本地图片」在未配置 uploadImage 时依然可用；
+ * 数据量较大的图片建议配置服务端上传（saveAsReferrer/对象存储返回 URL）。
+ */
+export function defaultUploadImage(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result as string)
+    reader.onerror = () => reject(new Error('read failed'))
+    reader.readAsDataURL(file)
+  })
 }
 
 interface ImageUploadStorage {
@@ -103,7 +117,25 @@ function startUpload(
   if (!placeholder) return
   editor.chain().insertContentAt(pos, placeholder).run()
 
-  uploadImage(file)
+  /** 失败统一处理：移除占位并广播错误 */
+  const onFail = () => {
+    const imgPos = findUploadingImagePos(editor, uploadId)
+    if (imgPos >= 0) {
+      editor.chain().deleteRange({ from: imgPos, to: imgPos + 1 }).run()
+    }
+    editor.emit('imageUploadError', { message: '图片上传失败，请重试' })
+  }
+
+  let result: Promise<string>
+  try {
+    // 同步抛出也视为失败（否则占位节点残留、错误未被捕获）
+    result = Promise.resolve(uploadImage(file))
+  } catch {
+    onFail()
+    return
+  }
+
+  result
     .then((src) => {
       const imgPos = findUploadingImagePos(editor, uploadId)
       if (imgPos < 0) return
@@ -122,13 +154,7 @@ function startUpload(
         })
         .run()
     })
-    .catch(() => {
-      const imgPos = findUploadingImagePos(editor, uploadId)
-      if (imgPos >= 0) {
-        editor.chain().deleteRange({ from: imgPos, to: imgPos + 1 }).run()
-      }
-      editor.emit('imageUploadError', { message: '图片上传失败，请重试' })
-    })
+    .catch(() => onFail())
 }
 
 /** 图片上传扩展：上传命令 + 粘贴/拖拽图片文件处理 */
@@ -136,7 +162,8 @@ export const ImageUpload = Extension.create<ImageUploadOptions, ImageUploadStora
   name: 'imageUpload',
 
   addOptions() {
-    return { uploadImage: undefined }
+    // 未配置时默认内置上传（dataURL），保证粘贴/拖拽/面板入口开箱即用
+    return { uploadImage: defaultUploadImage }
   },
 
   addStorage() {
@@ -147,9 +174,12 @@ export const ImageUpload = Extension.create<ImageUploadOptions, ImageUploadStora
     return {
       uploadAndInsertImage:
         (file: File) =>
-        ({ editor }) => {
+        ({ editor, tr }) => {
           const { uploadImage } = this.options
-          if (!uploadImage) return false
+          if (!uploadImage || !editor.isEditable) return false
+          // 命令体会经由独立 chain 派发「占位」事务；禁止外层链条再基于
+          // 旧状态派发事务，否则 ProseMirror 抛「Applying a mismatched transaction」
+          tr.setMeta('preventDispatch', true)
           startUpload(editor, uploadImage, editor.state.selection.from, file)
           return true
         },
@@ -170,6 +200,8 @@ export const ImageUpload = Extension.create<ImageUploadOptions, ImageUploadStora
       editor.emit('imageUploadBlocked', { message: '未配置图片上传，请使用 URL 插入' })
 
     const onPaste = (event: ClipboardEvent) => {
+      // 只读模式：与禁用工具栏一致，不绕过只读态修改内容
+      if (!editor.isEditable) return
       const file = findImageFile(event.clipboardData?.files)
       if (!file) return
       event.preventDefault()
@@ -181,6 +213,8 @@ export const ImageUpload = Extension.create<ImageUploadOptions, ImageUploadStora
     }
 
     const onDrop = (event: DragEvent) => {
+      // 只读模式：与禁用工具栏一致，不绕过只读态修改内容
+      if (!editor.isEditable) return
       const file = findImageFile(event.dataTransfer?.files)
       if (!file) return
       event.preventDefault()

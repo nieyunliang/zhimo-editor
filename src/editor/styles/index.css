@@ -543,7 +543,8 @@
 }
 
 .zhimo-editor .zm-image-upload {
-  margin-top: 8px;
+  margin-top: 0;
+  margin-bottom: 8px;
 }
 
 .zhimo-editor .zm-link-upload {
@@ -635,4 +636,38 @@
   to {
     background-position: 0 0;
   }
+}
+
+/* ===== 图片缩放（TipTap ResizableNodeView） ===== */
+.zhimo-editor .tiptap [data-resize-container].ProseMirror-selectednode {
+  outline: 2px solid var(--zm-primary);
+  outline-offset: 2px;
+}
+
+.zhimo-editor .tiptap [data-resize-handle] {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  background: var(--zm-primary);
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.15);
+  z-index: 1;
+  /* 默认隐藏：悬停图片或拖拽中显示 */
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+
+.zhimo-editor .tiptap [data-resize-container]:hover [data-resize-handle],
+.zhimo-editor .tiptap [data-resize-container][data-resize-state='true'] [data-resize-handle] {
+  opacity: 1;
+}
+
+.zhimo-editor .tiptap [data-resize-handle='bottom-right'],
+.zhimo-editor .tiptap [data-resize-handle='top-left'] {
+  cursor: nwse-resize;
+}
+
+.zhimo-editor .tiptap [data-resize-handle='bottom-left'],
+.zhimo-editor .tiptap [data-resize-handle='top-right'] {
+  cursor: nesw-resize;
 }
