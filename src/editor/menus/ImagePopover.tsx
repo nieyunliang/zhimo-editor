@@ -1,16 +1,14 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
+import { useEffect, useRef, useState } from 'react'
 import type { Editor } from '@tiptap/react'
 import { Image as ImageIcon, X } from 'lucide-react'
-import { usePopoverFlip, type PopoverContainer } from '../utils/popover'
+import { usePopoverClamp, usePopoverFlip, type PopoverContainer } from '../utils/popover'
 import type { ImageInsertAnchor } from '../types'
+import { PopoverShell } from './PopoverShell'
 
 interface ImagePopoverProps {
   editor: Editor
   /** 面板锚点；null 表示关闭。锚定触发处（工具栏按钮 / 斜杠触发行），不跟随光标 */
   anchor: ImageInsertAnchor | null
-  /** 图片上传回调（未提供时仅支持 URL 插入） */
-  uploadImage?: (file: File) => Promise<string>
   /** 挂载容器：编辑器根节点（保证作用域样式与主题变量生效） */
   container?: PopoverContainer
   onClose: () => void
@@ -41,14 +39,9 @@ function measureAnchor(anchor: ImageInsertAnchor): Rect | null {
  * - URL 为次路径：输入行 + 插入按钮，Enter 提交。
  * - Esc / 点击外部 / 插入成功均关闭；关闭后焦点归还编辑器。
  * - 面板随滚动/缩放实时跟随锚点；下方放不下时向上翻转；横向钳制在视口内。
+ * - 上传始终可用：未配置 uploadImage 时走 ImageUpload 扩展内置 dataURL 上传。
  */
-export function ImagePopover({
-  editor,
-  anchor,
-  uploadImage,
-  container,
-  onClose,
-}: ImagePopoverProps) {
+export function ImagePopover({ editor, anchor, container, onClose }: ImagePopoverProps) {
   const [url, setUrl] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -69,15 +62,6 @@ export function ImagePopover({
     }
   }, [anchor])
 
-  // 面板宽度实测后横向钳制在视口内
-  const [clampLeft, setClampLeft] = useState<number | null>(null)
-  useLayoutEffect(() => {
-    if (!rect || !boxRef.current) return
-    const width = boxRef.current.getBoundingClientRect().width
-    const max = Math.max(8, window.innerWidth - width - 8)
-    setClampLeft(rect.left > max ? max : null)
-  }, [rect])
-
   // 打开时聚焦 URL 输入（Tab 顺序：上传 → URL → 插入）
   useEffect(() => {
     if (!anchor) return
@@ -97,8 +81,9 @@ export function ImagePopover({
     return () => document.removeEventListener('mousedown', onMouseDown)
   }, [anchor, onClose])
 
-  // 下方放不下时向上翻转
+  // 下方放不下时向上翻转；横向钳制在视口内
   const flipped = usePopoverFlip(rect, boxRef, 8)
+  const clampLeft = usePopoverClamp(rect, boxRef)
 
   const insertUrl = () => {
     const src = url.trim()
@@ -112,47 +97,43 @@ export function ImagePopover({
    * 与粘贴/拖拽语义一致；失败由全局错误提示条反馈。
    */
   const handleFile = (file: File) => {
-    if (!uploadImage) return
     onClose()
     editor.commands.uploadAndInsertImage(file)
   }
 
   if (!anchor || !rect) return null
 
-  const top = flipped ? rect.top : rect.bottom
-  const left = clampLeft ?? rect.left
-  const transform = flipped ? 'translateY(calc(-100% - 8px))' : 'translateY(8px)'
-
-  return createPortal(
-    <div
-      ref={boxRef}
-      className="zm-image-popover zm-popover"
-      style={{ top, left, transform }}
-      onMouseDown={(e) => e.stopPropagation()}
+  return (
+    <PopoverShell
+      boxRef={boxRef}
+      anchor={rect}
+      flipped={flipped}
+      clampLeft={clampLeft}
+      container={container}
+      className="zm-image-popover"
       role="dialog"
-      aria-label="插入图片"
+      ariaLabel="插入图片"
+      onMouseDown={(e) => e.stopPropagation()}
     >
-      {uploadImage && (
-        <div className="zm-image-upload">
-          <button
-            type="button"
-            className="zm-link-btn zm-link-upload"
-            onClick={() => fileRef.current?.click()}
-          >
-            上传本地图片
-          </button>
-          <input
-            ref={fileRef}
-            type="file"
-            accept="image/*"
-            hidden
-            onChange={(e) => {
-              const f = e.target.files?.[0]
-              if (f) handleFile(f)
-            }}
-          />
-        </div>
-      )}
+      <div className="zm-image-upload">
+        <button
+          type="button"
+          className="zm-link-btn zm-link-upload"
+          onClick={() => fileRef.current?.click()}
+        >
+          上传本地图片
+        </button>
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/*"
+          hidden
+          onChange={(e) => {
+            const f = e.target.files?.[0]
+            if (f) handleFile(f)
+          }}
+        />
+      </div>
       <div className="zm-link-row">
         <ImageIcon size={15} aria-hidden />
         <input
@@ -162,6 +143,7 @@ export function ImagePopover({
           placeholder="输入图片 URL"
           onChange={(e) => setUrl(e.target.value)}
           onKeyDown={(e) => {
+            if (e.nativeEvent.isComposing) return
             if (e.key === 'Enter') insertUrl()
             if (e.key === 'Escape') onClose()
           }}
@@ -175,7 +157,6 @@ export function ImagePopover({
           插入
         </button>
       </div>
-    </div>,
-    container?.current ?? document.body,
+    </PopoverShell>
   )
 }

@@ -2,7 +2,32 @@
 
 本文件记录知墨编辑器（zhimo-editor）的重要变更。
 
-## Unreleased
+## 0.2.0
+
+### 修复
+- 链接编辑弹层补齐「点击外部关闭」与文档级 Esc（此前弹层开启后无法正常关闭，会残留并跟随光标）
+- 斜杠菜单 / 段落下拉 / 链接与图片弹层：IME 组合输入期间不拦截键盘事件（`isComposing` 守卫），修复中文输入法下 Enter / ↑↓ 被菜单消费
+- 斜杠菜单键盘导航后高亮项自动滚入可视区（菜单 `max-height` 会裁剪后半列表，键盘用户此前无法到达末尾项）
+- 全库弹层新增横向钳制（窄屏右缘触发不再溢出视口）；表格工具条补齐向上翻转
+- 图片上传流程补齐编辑器销毁守卫：上传完成 / 失败后编辑器已卸载时不再访问编辑器状态
+- 表格工具条合并 / 拆分可用性经 `useEditorState` 订阅（修复 React Compiler 记忆化 `editor.can()` 导致状态不更新的隐患）
+
+### 功能
+- 表格上下文工具条新增「合并 / 拆分单元格」（单格选中时禁用，跨格选中可用）
+- 新增 `editorAriaLabel` prop：编辑区 aria-label（默认「编辑器」）
+- 编辑区最小高度改为 `--zm-min-height` 变量（默认 240px，可覆盖）
+
+### 重构
+- 新增 `PopoverShell`：五个弹层（气泡 / 斜杠 / 链接 / 图片 / 表格工具条）的定位、翻转、钳制与门户渲染统一为单一来源
+- `INLINE_MARKS` 上移至共享命令注册表 `commands.ts`，工具栏与气泡菜单同源消费（消除重复定义）
+- 图片弹层不再重复传递 uploadImage 兜底（扩展内部默认，单一职责）
+
+### 样式 / 可访问性
+- 深色模式补 `color-scheme: dark`（原生滚动条 / 控件跟随深色）
+- 统一 `:focus-visible` 焦点环；编辑器根节点补 `:focus-within` 焦点指示（替代移除的 contenteditable outline）
+- 尊重 `prefers-reduced-motion`（上传占位动画与过渡降级）
+- 工具栏按钮触控优化（`touch-action: manipulation` / `-webkit-tap-highlight-color`）；斜杠菜单 `overscroll-behavior: contain`
+- 工具提示与图片缩放把手改用主题变量（不再硬编码 `#fff` / `#1f2937`）
 
 ### 工程 / 质量
 - 构建产物内置 TipTap v3（含 prosemirror）与 lucide-react，使用方零 tiptap / 图标库运行时依赖；`peerDependencies` 仅保留 react / react-dom

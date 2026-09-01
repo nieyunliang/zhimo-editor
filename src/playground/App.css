@@ -1,13 +1,74 @@
+/* ===== Playground 页面主题 token =====
+   Playground 单独定义一套页面级 --zm-*（供卡片/按钮/output 等页面 chrome 使用），
+   App.tsx 把所选 theme 写到 documentElement.dataset.theme：
+   - html[data-theme='light']：浅色（默认 token）
+   - html[data-theme='dark']：强制深色
+   - html[data-theme='system']：@media prefers-color-scheme 跟随系统 */
+:root {
+  --zm-primary: #2563eb;
+  --zm-primary-hover: #1d4ed8;
+  --zm-text: #1f2329;
+  --zm-text-secondary: #646a73;
+  --zm-text-muted: #9ca3af;
+  --zm-border: #e5e7eb;
+  --zm-border-strong: #d1d5db;
+  --zm-bg: #ffffff;
+  --zm-bg-hover: #f3f4f6;
+  --zm-bg-active: #eef2ff;
+  --zm-page-bg: #f5f6f8;
+  --zm-card-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+  --zm-pre-bg: #f8fafc;
+}
+
+html[data-theme='dark'] {
+  color-scheme: dark;
+  --zm-primary: #3b82f6;
+  --zm-primary-hover: #60a5fa;
+  --zm-text: #e5e7eb;
+  --zm-text-secondary: #9ca3af;
+  --zm-text-muted: #6b7280;
+  --zm-border: #374151;
+  --zm-border-strong: #4b5563;
+  --zm-bg: #1f2937;
+  --zm-bg-hover: #374151;
+  --zm-bg-active: #1e2a4a;
+  --zm-page-bg: #0b1220;
+  --zm-card-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  --zm-pre-bg: #111827;
+}
+
+@media (prefers-color-scheme: dark) {
+  html[data-theme='system'] {
+    color-scheme: dark;
+    --zm-primary: #3b82f6;
+    --zm-primary-hover: #60a5fa;
+    --zm-text: #e5e7eb;
+    --zm-text-secondary: #9ca3af;
+    --zm-text-muted: #6b7280;
+    --zm-border: #374151;
+    --zm-border-strong: #4b5563;
+    --zm-bg: #1f2937;
+    --zm-bg-hover: #374151;
+    --zm-bg-active: #1e2a4a;
+    --zm-page-bg: #0b1220;
+    --zm-card-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+    --zm-pre-bg: #111827;
+  }
+}
+
+/* ===== Playground 页面 chrome ===== */
 .page {
   max-width: 860px;
   margin: 0 auto;
   padding: 40px 24px 80px;
+  background: var(--zm-page-bg);
 }
 
 .page-header h1 {
   margin: 0 0 8px;
   font-size: 28px;
   letter-spacing: 0.5px;
+  color: var(--zm-text);
 }
 
 .page-header p {
@@ -16,9 +77,9 @@
 }
 
 .demo-card {
-  background: #fff;
+  background: var(--zm-bg);
   border-radius: 12px;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+  box-shadow: var(--zm-card-shadow);
   margin-bottom: 28px;
   overflow: hidden;
 }
@@ -32,6 +93,7 @@
   padding: 14px 18px 12px;
   font-size: 15px;
   font-weight: 600;
+  color: var(--zm-text);
   border-bottom: 1px solid var(--zm-border);
 }
 
@@ -47,7 +109,7 @@
 
 .demo-btn {
   border: 1px solid var(--zm-border-strong);
-  background: #fff;
+  background: var(--zm-bg);
   border-radius: 6px;
   padding: 4px 12px;
   font-size: 13px;
@@ -77,6 +139,39 @@
   cursor: pointer;
 }
 
+/* 主题模式分段控件 */
+.demo-seg {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  border: 1px solid var(--zm-border-strong);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.demo-seg-btn {
+  border: none;
+  background: transparent;
+  padding: 4px 10px;
+  font-size: 12.5px;
+  font-family: inherit;
+  color: var(--zm-text-secondary);
+  cursor: pointer;
+}
+
+.demo-seg-btn + .demo-seg-btn {
+  border-left: 1px solid var(--zm-border-strong);
+}
+
+.demo-seg-btn:hover {
+  color: var(--zm-text);
+}
+
+.demo-seg-btn.is-active {
+  background: var(--zm-primary);
+  color: #fff;
+}
+
 .output {
   border-top: 1px solid var(--zm-border);
   padding: 10px 16px;
@@ -94,7 +189,8 @@
   max-height: 260px;
   overflow: auto;
   font-size: 12px;
-  background: #f8fafc;
+  background: var(--zm-pre-bg);
+  color: var(--zm-text);
   border-radius: 6px;
   padding: 10px;
   white-space: pre-wrap;

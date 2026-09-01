@@ -12,6 +12,11 @@ import {
   Link2,
   Table,
   Image as ImageIcon,
+  Bold,
+  Italic,
+  Underline,
+  Strikethrough,
+  Code,
   type LucideIcon,
 } from 'lucide-react'
 import { modKey } from './utils/platform'
@@ -197,3 +202,15 @@ export const EDITOR_COMMANDS: EditorCommand[] = [
 export function getCommand(id: string): EditorCommand | undefined {
   return EDITOR_COMMANDS.find((c) => c.id === id)
 }
+
+/**
+ * 行内标记（工具栏与气泡菜单共用；mark = 扩展名，用于 isActive 查询）。
+ * 不进斜杠命令菜单（斜杠菜单语义是块级/插入命令）。
+ */
+export const INLINE_MARKS = [
+  { icon: Bold, label: '加粗', shortcut: modKey + 'B', mark: 'bold', run: (e: Editor) => e.chain().focus().toggleBold().run() },
+  { icon: Italic, label: '斜体', shortcut: modKey + 'I', mark: 'italic', run: (e: Editor) => e.chain().focus().toggleItalic().run() },
+  { icon: Underline, label: '下划线', shortcut: modKey + 'U', mark: 'underline', run: (e: Editor) => e.chain().focus().toggleUnderline().run() },
+  { icon: Strikethrough, label: '删除线', shortcut: modKey + 'Shift+X', mark: 'strike', run: (e: Editor) => e.chain().focus().toggleStrike().run() },
+  { icon: Code, label: '行内代码', shortcut: modKey + 'E', mark: 'code', run: (e: Editor) => e.chain().focus().toggleCode().run() },
+] as const

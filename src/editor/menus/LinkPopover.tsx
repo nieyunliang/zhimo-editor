@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
-import type { Editor } from '@tiptap/react'
+import { useEditorState, type Editor } from '@tiptap/react'
 import { Link2, Link2Off, X } from 'lucide-react'
-import { usePopoverAnchor, usePopoverFlip, type PopoverContainer } from '../utils/popover'
+import { usePopoverAnchor, usePopoverClamp, usePopoverFlip, type PopoverContainer } from '../utils/popover'
+import { PopoverShell } from './PopoverShell'
 
 export interface LinkPopoverState {
   open: boolean
@@ -41,8 +41,9 @@ export function LinkPopover({ editor, state, container, onClose }: LinkPopoverPr
     [state?.open],
   )
 
-  // 弹出方向翻转（下方放不下时显示在选区上方）
+  // 弹出方向翻转（下方放不下时显示在选区上方）+ 横向钳制在视口内
   const flipped = usePopoverFlip(anchor, boxRef)
+  const clampLeft = usePopoverClamp(anchor, boxRef)
 
   // 打开时聚焦输入框（外部系统同步）
   useEffect(() => {
@@ -53,7 +54,30 @@ export function LinkPopover({ editor, state, container, onClose }: LinkPopoverPr
     })
   }, [state, editor])
 
-  const hasLink = editor.isActive('link')
+  // 点击面板外部 / Esc 关闭（文档级监听：输入框未聚焦时同样生效）
+  useEffect(() => {
+    if (!state?.open) return
+    const onMouseDown = (e: MouseEvent) => {
+      if (boxRef.current?.contains(e.target as Node)) return
+      onClose()
+    }
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    document.addEventListener('mousedown', onMouseDown)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', onMouseDown)
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [state?.open, onClose])
+
+  // 当前选区是否已有链接（经 useEditorState 订阅：渲染期直接调用 isActive
+  // 会被 React Compiler 按 editor 引用记忆化，选区变化后不再重算）
+  const hasLink = useEditorState({
+    editor,
+    selector: ({ editor: e }) => !!e?.isActive('link'),
+  }) ?? false
 
   const apply = () => {
     const href = url.trim()
@@ -77,18 +101,18 @@ export function LinkPopover({ editor, state, container, onClose }: LinkPopoverPr
 
   if (!state?.open || !anchor) return null
 
-  const pos = flipped
-    ? { top: anchor.top, left: anchor.left }
-    : { top: anchor.bottom, left: anchor.left }
-
-  return createPortal(
-    <div
-      ref={boxRef}
-      className="zm-link-popover zm-popover"
-      style={{ top: pos.top, left: pos.left, transform: flipped ? 'translateY(calc(-100% - 12px))' : 'translateY(12px)' }}
-      onMouseDown={(e) => e.stopPropagation()}
+  return (
+    <PopoverShell
+      boxRef={boxRef}
+      anchor={anchor}
+      flipped={flipped}
+      clampLeft={clampLeft}
+      offset={12}
+      container={container}
+      className="zm-link-popover"
       role="dialog"
-      aria-label="编辑链接"
+      ariaLabel="编辑链接"
+      onMouseDown={(e) => e.stopPropagation()}
     >
       <div className="zm-link-row">
         <Link2 size={15} aria-hidden />
@@ -99,6 +123,7 @@ export function LinkPopover({ editor, state, container, onClose }: LinkPopoverPr
           placeholder="输入链接地址"
           onChange={(e) => setUrl(e.target.value)}
           onKeyDown={(e) => {
+            if (e.nativeEvent.isComposing) return
             if (e.key === 'Enter') apply()
             if (e.key === 'Escape') onClose()
           }}
@@ -123,7 +148,6 @@ export function LinkPopover({ editor, state, container, onClose }: LinkPopoverPr
           确定
         </button>
       </div>
-    </div>,
-    container?.current ?? document.body,
+    </PopoverShell>
   )
 }

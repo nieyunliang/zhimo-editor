@@ -93,3 +93,23 @@ export function usePopoverFlip(
 
   return flipped
 }
+
+/**
+ * 弹层横向钳制：锚点左缘靠右放不下时，把弹层左缘钳回视口内（右对齐）。
+ * 测量依赖 boxRef 实测宽度（box 渲染后触发重算）。
+ */
+export function usePopoverClamp(
+  anchor: PopoverAnchor | null,
+  boxRef: RefObject<HTMLDivElement | null>,
+): number | null {
+  const [clampLeft, setClampLeft] = useState<number | null>(null)
+
+  useLayoutEffect(() => {
+    if (!anchor || !boxRef.current) return
+    const { width } = boxRef.current.getBoundingClientRect()
+    const max = Math.max(8, window.innerWidth - width - 8)
+    setClampLeft(anchor.left > max ? max : null)
+  }, [anchor, boxRef])
+
+  return clampLeft
+}

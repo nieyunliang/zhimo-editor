@@ -9,7 +9,7 @@
 - **中文工具栏**：段落格式（正文 / 标题 1-3）、加粗 / 斜体 / 下划线 / 删除线 / 行内代码、有序 / 无序列表、引用 / 代码块 / 分割线、链接 / 图片 / 表格插入、撤销 / 重做
 - **浮动气泡菜单**：选中文本即出现格式操作
 - **斜杠命令菜单**：输入 `/` 弹出分组命令面板，支持关键字过滤与键盘导航（`↑` `↓` `Enter` `Esc`）
-- **表格增强**：光标进入表格自动出现上下文工具条（插入 / 删除行列、删除表格）
+- **表格增强**：光标进入表格自动出现上下文工具条（插入 / 删除行列、合并 / 拆分单元格、删除表格）
 - **图片**：URL 插入、上传开箱即用（粘贴 / 拖拽 / 面板上传；未配置 `uploadImage` 时内置 FileReader 转 dataURL，含上传中占位与失败回滚）、**拖拽等比缩放**（右下角把手，尺寸写入 `width`/`height` 属性随内容保存）
 - **链接编辑**：设置 / 移除链接弹层，外链自动 `noopener noreferrer` 安全属性
 - **双模式**：受控（`value` + `onChange`）与非受控（`defaultValue`）
@@ -86,7 +86,9 @@ import Underline from '@tiptap/extension-underline'
 | `format` | `'html' \| 'json'` | `'html'` | 内容序列化格式（JSON 为字符串化的 JSONContent） |
 | `onChange` | `(content: string) => void` | — | 内容变化回调 |
 | `placeholder` | `string` | `请输入内容…` | 空文档占位符 |
+| `editorAriaLabel` | `string` | `编辑器` | 编辑区可访问名称（aria-label） |
 | `disabled` | `boolean` | `false` | 只读模式 |
+| `theme` | `'light' \| 'dark' \| 'system'` | `'system'` | 主题模式：跟随系统 / 强制浅色 / 强制深色 |
 | `uploadImage` | `(file: File) => Promise<string>` | — | 图片上传回调（未配置时内置 FileReader 转 dataURL） |
 | `extensions` | `AnyExtension[]` | — | 追加 / 覆盖扩展 |
 | `toolbar` | `boolean \| ReactNode` | `true` | 内置工具栏开关或自定义工具栏 |
@@ -99,13 +101,26 @@ import Underline from '@tiptap/extension-underline'
 
 ## 主题定制
 
-主题通过 `.zhimo-editor` 上的 CSS 变量控制，覆盖任意变量即可换肤：
+内置浅色 / 深色两套配色，通过 `theme` 属性控制模式：
+
+```tsx
+<ZhimoEditor theme="system" />  {/* 默认：跟随系统明暗 */}
+<ZhimoEditor theme="light" />   {/* 强制浅色 */}
+<ZhimoEditor theme="dark" />    {/* 强制深色 */}
+```
+
+- `theme="system"` 基于 CSS `prefers-color-scheme` 跟随操作系统，系统明暗切换即时生效，无需 JS 监听，SSR / 无 JS 环境同样安全。
+- 根节点会携带 `data-theme={theme}`，可供外部页面联动（例如给宿主页自身配色加同款 `@media (prefers-color-scheme: dark)` 切换）。
+- 深色下编辑器 UI 全部基于同色板变量自适应，行内代码、代码块、错误条、表格危险态、弹层阴影等均已切换。
+- 使用方仍可覆盖变量做进一步换肤，深色可用 `.zhimo-editor[data-theme='dark']` 或 `@media (prefers-color-scheme: dark) { .zhimo-editor[data-theme='system'] { … } }` 锁定。
+
+主题通过 `.zhimo-editor` 上的 CSS 变量控制，覆盖任意变量即可换肤（以下为浅色默认值）：
 
 ```css
 .zhimo-editor {
-  --zm-primary: #16a34a;          /* 主色 */
-  --zm-primary-hover: #15803d;    /* 主色 hover */
-  --zm-primary-soft: #f0fdf4;     /* 主色浅底 */
+  --zm-primary: #2563eb;          /* 主色 */
+  --zm-primary-hover: #1d4ed8;    /* 主色 hover */
+  --zm-primary-soft: #eff6ff;     /* 主色浅底 */
   --zm-text: #1f2329;             /* 正文色 */
   --zm-text-secondary: #646a73;   /* 次级文本 */
   --zm-text-muted: #9ca3af;       /* 弱化文本 */
@@ -115,7 +130,13 @@ import Underline from '@tiptap/extension-underline'
   --zm-bg-hover: #f3f4f6;         /* hover 背景 */
   --zm-bg-active: #eef2ff;        /* 激活背景 */
   --zm-danger: #dc2626;           /* 危险色 */
+  --zm-danger-soft: #fef2f2;      /* 危险浅底（错误条 / 表格危险 hover） */
+  --zm-code: #d63384;             /* 行内代码前景 */
+  --zm-codeblock-bg: #0f172a;     /* 代码块背景 */
+  --zm-codeblock-text: #e2e8f0;   /* 代码块前景 */
+  --zm-shadow: 0 4px 16px rgba(15, 23, 42, 0.12), 0 1px 3px rgba(15, 23, 42, 0.08);
   --zm-radius: 8px;               /* 圆角 */
+  --zm-min-height: 240px;         /* 编辑区最小高度 */
   --zm-font: 'PingFang SC', system-ui, sans-serif;
   --zm-font-mono: ui-monospace, Menlo, Consolas, monospace;
 }

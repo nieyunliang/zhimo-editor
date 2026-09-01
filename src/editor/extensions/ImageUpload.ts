@@ -55,7 +55,7 @@ export interface ImageUploadOptions {
 /**
  * 内置上传：FileReader 转 data URL。
  * 使「上传本地图片」在未配置 uploadImage 时依然可用；
- * 数据量较大的图片建议配置服务端上传（saveAsReferrer/对象存储返回 URL）。
+ * 数据量较大的图片建议配置服务端上传（返回对象存储/CDN URL）。
  */
 export function defaultUploadImage(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -119,6 +119,8 @@ function startUpload(
 
   /** 失败统一处理：移除占位并广播错误 */
   const onFail = () => {
+    // 编辑器已销毁（如上传期间卸载）：state 已清空，不再访问
+    if (editor.isDestroyed) return
     const imgPos = findUploadingImagePos(editor, uploadId)
     if (imgPos >= 0) {
       editor.chain().deleteRange({ from: imgPos, to: imgPos + 1 }).run()
@@ -137,6 +139,7 @@ function startUpload(
 
   result
     .then((src) => {
+      if (editor.isDestroyed) return
       const imgPos = findUploadingImagePos(editor, uploadId)
       if (imgPos < 0) return
       editor

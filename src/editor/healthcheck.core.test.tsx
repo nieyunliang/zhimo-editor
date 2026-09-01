@@ -60,6 +60,25 @@ describe('体检：Props 契约（对照 README）', () => {
     )
   })
 
+  it('theme 默认 system，映射为根节点 data-theme', async () => {
+    render(<ZhimoEditor />)
+    await waitFor(() =>
+      expect(document.querySelector('.zhimo-editor')?.getAttribute('data-theme')).toBe('system'),
+    )
+  })
+
+  it('theme 显式指定 light / dark 映射到 data-theme 且可与 className 共存', async () => {
+    const { rerender } = render(<ZhimoEditor theme="dark" className="my-theme" />)
+    await waitFor(() =>
+      expect(document.querySelector('.zhimo-editor')?.getAttribute('data-theme')).toBe('dark'),
+    )
+    expect(document.querySelector('.zhimo-editor')?.classList.contains('my-theme')).toBe(true)
+    rerender(<ZhimoEditor theme="light" />)
+    await waitFor(() =>
+      expect(document.querySelector('.zhimo-editor')?.getAttribute('data-theme')).toBe('light'),
+    )
+  })
+
   it('默认占位符为「请输入内容…」（与 README 一致）', async () => {
     render(<ZhimoEditor />)
     await waitFor(() =>

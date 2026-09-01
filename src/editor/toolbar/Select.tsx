@@ -63,6 +63,8 @@ export function BlockSelect({
       }
     }
     const onKeyDown = (ev: globalThis.KeyboardEvent) => {
+      // IME 组合输入期间不拦截（中文输入法 Enter/↑↓ 用于选字/提交）
+      if (ev.isComposing) return
       if (ev.key === 'ArrowDown') {
         ev.preventDefault()
         setHighlight((i) => Math.min(i + 1, BLOCK_OPTIONS.length - 1))

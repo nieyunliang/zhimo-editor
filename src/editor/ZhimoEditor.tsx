@@ -7,7 +7,6 @@ import { SlashMenu } from './menus/SlashMenu'
 import { TableMenu } from './menus/TableMenu'
 import { LinkPopover, type LinkPopoverState } from './menus/LinkPopover'
 import { ImagePopover } from './menus/ImagePopover'
-import { defaultUploadImage } from './extensions/ImageUpload'
 import { cn } from './utils/cn'
 import type { ImageInsertAnchor, ZhimoEditorProps } from './types'
 
@@ -22,6 +21,7 @@ export function ZhimoEditor(props: ZhimoEditorProps) {
     toolbar = true,
     bubbleMenu = true,
     slashMenu = true,
+    theme = 'system',
     className,
     style,
     disabled,
@@ -99,6 +99,7 @@ export function ZhimoEditor(props: ZhimoEditorProps) {
     <div
       ref={rootRef}
       className={cn('zhimo-editor', disabled && 'is-disabled', className)}
+      data-theme={theme}
       style={style}
     >
       {toolbar !== false && (
@@ -138,8 +139,6 @@ export function ZhimoEditor(props: ZhimoEditorProps) {
         key={imageAnchor ? 'image-open' : 'image-closed'}
         editor={editor}
         anchor={imageAnchor}
-        // 未配置 uploadImage 时回退内置 dataURL 上传：上传入口始终可用
-        uploadImage={editorProps.uploadImage ?? defaultUploadImage}
         container={rootRef}
         onClose={closeImage}
       />

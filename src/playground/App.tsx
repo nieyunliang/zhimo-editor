@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { ZhimoEditor, type ZhimoEditorProps } from '../editor'
 import './App.css'
@@ -46,7 +46,13 @@ export default function App() {
   const [disabled, setDisabled] = useState(false)
   const [noToolbar, setNoToolbar] = useState(false)
   const [primary, setPrimary] = useState('#2563eb')
+  const [theme, setTheme] = useState<NonNullable<ZhimoEditorProps['theme']>>('system')
   const themeStyle = { '--zm-primary': primary } as CSSProperties
+
+  // 让整个 Playground 页面（body 背景 / demo 卡片）跟随所选主题模式
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme
+  }, [theme])
 
   return (
     <main className="page">
@@ -126,10 +132,23 @@ export default function App() {
                 onChange={(e) => setPrimary(e.target.value)}
               />
             </label>
+            <span className="demo-seg" role="group" aria-label="主题模式">
+              {(['system', 'light', 'dark'] as const).map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  className={`demo-seg-btn${theme === mode ? ' is-active' : ''}`}
+                  onClick={() => setTheme(mode)}
+                >
+                  {mode === 'system' ? '跟随系统' : mode === 'light' ? '浅色' : '深色'}
+                </button>
+              ))}
+            </span>
           </span>
         </h2>
         <ZhimoEditor
           style={themeStyle}
+          theme={theme}
           disabled={disabled}
           toolbar={!noToolbar}
           placeholder="配置项演示：只读 / 工具栏 / 主题色（CSS 变量）"

@@ -1,11 +1,12 @@
 import { useRef } from 'react'
-import { createPortal } from 'react-dom'
 import { useEditorState, type Editor } from '@tiptap/react'
 import { NodeSelection } from '@tiptap/pm/state'
-import { Bold, Italic, Underline, Strikethrough, Code, Link2 } from 'lucide-react'
+import { Link2 } from 'lucide-react'
+import { INLINE_MARKS } from '../commands'
 import { ToolButton } from '../toolbar/Button'
 import { ToolDivider } from '../toolbar/Divider'
-import { usePopoverAnchor, usePopoverFlip, type PopoverContainer } from '../utils/popover'
+import { usePopoverAnchor, usePopoverClamp, usePopoverFlip, type PopoverContainer } from '../utils/popover'
+import { PopoverShell } from './PopoverShell'
 
 interface BubbleMenuProps {
   editor: Editor
@@ -55,58 +56,34 @@ export function BubbleMenu({ editor, onOpenLink, container }: BubbleMenuProps) {
     return getSelectionRect()
   })
 
-  // 翻转：下方放不下时显示在选区上方
+  // 翻转：下方放不下时显示在选区上方；横向钳制在视口内
   const flipped = usePopoverFlip(rect, boxRef)
+  const clampLeft = usePopoverClamp(rect, boxRef)
 
   if (!rect || !state) return null
 
-  const pos = flipped
-    ? { top: rect.top, left: rect.left }
-    : { top: rect.bottom, left: rect.left }
-
-  return createPortal(
-    <div
-      ref={boxRef}
-      className="zm-bubble-menu zm-popover"
-      style={{
-        top: pos.top,
-        left: pos.left,
-        transform: flipped ? 'translateY(calc(-100% - 12px))' : 'translateY(12px)',
-      }}
-      onMouseDown={(e) => e.preventDefault()}
+  return (
+    <PopoverShell
+      boxRef={boxRef}
+      anchor={rect}
+      flipped={flipped}
+      clampLeft={clampLeft}
+      offset={12}
+      container={container}
+      className="zm-bubble-menu"
       role="toolbar"
-      aria-label="文本格式"
+      ariaLabel="文本格式"
+      onMouseDown={(e) => e.preventDefault()}
     >
-      <ToolButton
-        icon={Bold}
-        label="加粗"
-        active={state.bold}
-        onClick={() => editor.chain().focus().toggleBold().run()}
-      />
-      <ToolButton
-        icon={Italic}
-        label="斜体"
-        active={state.italic}
-        onClick={() => editor.chain().focus().toggleItalic().run()}
-      />
-      <ToolButton
-        icon={Underline}
-        label="下划线"
-        active={state.underline}
-        onClick={() => editor.chain().focus().toggleUnderline().run()}
-      />
-      <ToolButton
-        icon={Strikethrough}
-        label="删除线"
-        active={state.strike}
-        onClick={() => editor.chain().focus().toggleStrike().run()}
-      />
-      <ToolButton
-        icon={Code}
-        label="行内代码"
-        active={state.code}
-        onClick={() => editor.chain().focus().toggleCode().run()}
-      />
+      {INLINE_MARKS.map((m) => (
+        <ToolButton
+          key={m.mark}
+          icon={m.icon}
+          label={m.label}
+          active={state[m.mark]}
+          onClick={() => m.run(editor)}
+        />
+      ))}
       <ToolDivider />
       <ToolButton
         icon={Link2}
@@ -114,7 +91,6 @@ export function BubbleMenu({ editor, onOpenLink, container }: BubbleMenuProps) {
         active={state.link}
         onClick={onOpenLink}
       />
-    </div>,
-    container?.current ?? document.body,
+    </PopoverShell>
   )
 }

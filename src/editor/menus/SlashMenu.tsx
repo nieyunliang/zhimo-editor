@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
 import type { Editor } from '@tiptap/react'
 import {
   COMMAND_GROUPS,
@@ -7,8 +6,9 @@ import {
   type CommandContext,
   type EditorCommand,
 } from '../commands'
-import { usePopoverAnchor, usePopoverFlip, type PopoverContainer } from '../utils/popover'
+import { usePopoverAnchor, usePopoverClamp, usePopoverFlip, type PopoverContainer } from '../utils/popover'
 import type { ImageInsertAnchor } from '../types'
+import { PopoverShell } from './PopoverShell'
 
 interface SlashMenuProps {
   editor: Editor
@@ -32,6 +32,9 @@ export function SlashMenu({ editor, onOpenLink, onOpenImage, container }: SlashM
   const [state, setState] = useState<MenuState | null>(null)
   const [activeIndex, setActiveIndex] = useState(0)
   const boxRef = useRef<HTMLDivElement>(null)
+  /** 键盘导航标记：仅键盘 ↑↓ 后滚轮对齐，悬停不滚动菜单 */
+  const navByKeyboard = useRef(false)
+  const activeItemRef = useRef<HTMLButtonElement>(null)
 
   /** 按 query 过滤命令 */
   const items = useMemo(() => {
@@ -48,6 +51,14 @@ export function SlashMenu({ editor, onOpenLink, onOpenImage, container }: SlashM
   useEffect(() => {
     setActiveIndex(0)
   }, [state?.query])
+
+  /** 键盘导航后把高亮项滚入可视区（菜单 max-height 会裁剪后半列表） */
+  useEffect(() => {
+    if (!navByKeyboard.current || !state) return
+    navByKeyboard.current = false
+    // jsdom 未实现 scrollIntoView：可选链降级，测试环境不抛错
+    activeItemRef.current?.scrollIntoView?.({ block: 'nearest' })
+  }, [activeIndex, state])
 
   /** 检测 '/' 触发 / 更新过滤词 / 关闭 */
   useEffect(() => {
@@ -98,18 +109,23 @@ export function SlashMenu({ editor, onOpenLink, onOpenImage, container }: SlashM
     [state],
   )
 
-  // 视口放不下时向上翻转
+  // 视口放不下时向上翻转；横向钳制在视口内
   const flipped = usePopoverFlip(anchor, boxRef, 8)
+  const clampLeft = usePopoverClamp(anchor, boxRef)
 
   /** 键盘导航 */
   useEffect(() => {
     if (!state || items.length === 0) return
     const onKeyDown = (ev: KeyboardEvent) => {
+      // IME 组合输入期间不拦截（中文输入法 Enter 提交拼音、↑↓ 选字）
+      if (ev.isComposing) return
       if (ev.key === 'ArrowDown') {
         ev.preventDefault()
+        navByKeyboard.current = true
         setActiveIndex((i) => (i + 1) % items.length)
       } else if (ev.key === 'ArrowUp') {
         ev.preventDefault()
+        navByKeyboard.current = true
         setActiveIndex((i) => (i - 1 + items.length) % items.length)
       } else if (ev.key === 'Enter') {
         ev.preventDefault()
@@ -150,19 +166,18 @@ export function SlashMenu({ editor, onOpenLink, onOpenImage, container }: SlashM
   const activeItem = items[activeIndex]
   const activeId = activeItem ? `zm-slash-option-${activeItem.id}` : undefined
 
-  return createPortal(
-    <div
-      ref={boxRef}
-      className="zm-slash-menu zm-popover"
-      style={{
-        top: flipped ? anchor.top : anchor.bottom,
-        left: anchor.left,
-        transform: flipped ? 'translateY(calc(-100% - 8px))' : 'translateY(8px)',
-      }}
-      onMouseDown={(e) => e.preventDefault()}
+  return (
+    <PopoverShell
+      boxRef={boxRef}
+      anchor={anchor}
+      flipped={flipped}
+      clampLeft={clampLeft}
+      container={container}
+      className="zm-slash-menu"
       role="listbox"
-      aria-label="命令菜单"
-      aria-activedescendant={activeId}
+      ariaLabel="命令菜单"
+      ariaActiveDescendant={activeId}
+      onMouseDown={(e) => e.preventDefault()}
     >
       {items.length === 0 && (
         <div className="zm-slash-empty">没有匹配的命令</div>
@@ -179,6 +194,7 @@ export function SlashMenu({ editor, onOpenLink, onOpenImage, container }: SlashM
                 <button
                   key={item.id}
                   id={`zm-slash-option-${item.id}`}
+                  ref={index === activeIndex ? activeItemRef : undefined}
                   type="button"
                   role="option"
                   aria-selected={index === activeIndex}
@@ -200,7 +216,6 @@ export function SlashMenu({ editor, onOpenLink, onOpenImage, container }: SlashM
           </div>
         )
       })}
-    </div>,
-    container?.current ?? document.body,
+    </PopoverShell>
   )
 }

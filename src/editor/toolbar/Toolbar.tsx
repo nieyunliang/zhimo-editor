@@ -1,22 +1,13 @@
 import { useRef } from 'react'
 import type { Editor } from '@tiptap/react'
 import { useEditorState } from '@tiptap/react'
-import { Bold, Italic, Underline, Strikethrough, Code, Undo2, Redo2 } from 'lucide-react'
+import { Undo2, Redo2 } from 'lucide-react'
 import { ToolButton } from './Button'
 import { ToolDivider } from './Divider'
 import { BlockSelect } from './Select'
-import { EDITOR_COMMANDS, type CommandContext, type EditorCommand } from '../commands'
+import { EDITOR_COMMANDS, INLINE_MARKS, type CommandContext, type EditorCommand } from '../commands'
 import { modKey } from '../utils/platform'
 import type { ImageInsertAnchor } from '../types'
-
-/** 行内标记按钮（工具栏专属，不在斜杠菜单中出现） */
-const INLINE_MARKS = [
-  { icon: Bold, label: '加粗', shortcut: modKey + 'B', mark: 'bold', run: (e: Editor) => e.chain().focus().toggleBold().run() },
-  { icon: Italic, label: '斜体', shortcut: modKey + 'I', mark: 'italic', run: (e: Editor) => e.chain().focus().toggleItalic().run() },
-  { icon: Underline, label: '下划线', shortcut: modKey + 'U', mark: 'underline', run: (e: Editor) => e.chain().focus().toggleUnderline().run() },
-  { icon: Strikethrough, label: '删除线', shortcut: modKey + 'Shift+X', mark: 'strike', run: (e: Editor) => e.chain().focus().toggleStrike().run() },
-  { icon: Code, label: '行内代码', shortcut: modKey + 'E', mark: 'code', run: (e: Editor) => e.chain().focus().toggleCode().run() },
-] as const
 
 /** 工具栏整体状态订阅（selection/transaction 变化时更新） */
 function useToolbarState(editor: Editor) {

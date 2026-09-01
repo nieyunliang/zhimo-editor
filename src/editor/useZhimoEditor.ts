@@ -33,6 +33,7 @@ export function useZhimoEditor(props: ZhimoEditorProps): Editor | null {
     defaultValue,
     format = 'html',
     placeholder,
+    editorAriaLabel,
     disabled,
     extensions,
     uploadImage,
@@ -53,6 +54,10 @@ export function useZhimoEditor(props: ZhimoEditorProps): Editor | null {
     extensions: ext,
     content: parseContent(defaultValue ?? value, format),
     editable: !disabled,
+    // 编辑区可访问名称：contenteditable 无默认 role 标签，屏幕阅读器需要 aria-label
+    editorProps: {
+      attributes: { 'aria-label': editorAriaLabel ?? '编辑器' },
+    },
     onUpdate: ({ editor: e }) => {
       onChange?.(serializeContent(e, format))
     },

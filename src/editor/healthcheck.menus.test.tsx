@@ -141,6 +141,45 @@ describe('体检：斜杠命令菜单完整路径', () => {
       'zm-slash-option-h1',
     )
   })
+
+  it('IME 组合输入期间不拦截键盘（isComposing 守卫）', async () => {
+    const { getEditor } = renderEditor({})
+    const editor = await editorReady(getEditor)
+    typeInto(editor, '/')
+    const listbox = await screen.findByRole('listbox')
+    const before = listbox.getAttribute('aria-activedescendant')
+    act(() => {
+      editor.view.dom.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, isComposing: true }),
+      )
+    })
+    // 组合期 ↑↓ 属于输入法选字，菜单不消费：高亮项不变
+    expect(listbox.getAttribute('aria-activedescendant')).toBe(before)
+  })
+
+  it('键盘导航后高亮项滚入可视区', async () => {
+    // jsdom 未实现 scrollIntoView：临时定义再断言调用
+    const spy = vi.fn()
+    Object.defineProperty(HTMLButtonElement.prototype, 'scrollIntoView', {
+      configurable: true,
+      writable: true,
+      value: spy,
+    })
+    try {
+      const { getEditor } = renderEditor({})
+      const editor = await editorReady(getEditor)
+      typeInto(editor, '/')
+      await screen.findByRole('listbox')
+      act(() => {
+        editor.view.dom.dispatchEvent(
+          new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }),
+        )
+      })
+      await waitFor(() => expect(spy).toHaveBeenCalledWith({ block: 'nearest' }))
+    } finally {
+      delete (HTMLButtonElement.prototype as Partial<HTMLButtonElement>).scrollIntoView
+    }
+  })
 })
 
 describe('体检：链接编辑弹层', () => {
@@ -210,6 +249,33 @@ describe('体检：链接编辑弹层', () => {
     await userEvent.click(screen.getByRole('button', { name: '链接' }))
     const { input: input2 } = await openLinkDialog()
     fireEvent.keyDown(input2, { key: 'Escape' })
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '编辑链接' })).toBeNull())
+  })
+
+  it('点击面板外部关闭', async () => {
+    const { getEditor } = renderEditor({ defaultValue: '<p>选择我</p>' })
+    const editor = await editorReady(getEditor)
+    act(() => {
+      editor.commands.setTextSelection({ from: 1, to: 4 })
+    })
+    await userEvent.click(screen.getByRole('button', { name: '链接' }))
+    await screen.findByRole('dialog', { name: '编辑链接' })
+    fireEvent.mouseDown(document.body)
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '编辑链接' })).toBeNull())
+  })
+
+  it('文档级 Esc 关闭（输入框未聚焦时同样生效）', async () => {
+    const { getEditor } = renderEditor({ defaultValue: '<p>选择我</p>' })
+    const editor = await editorReady(getEditor)
+    act(() => {
+      editor.commands.setTextSelection({ from: 1, to: 4 })
+    })
+    await userEvent.click(screen.getByRole('button', { name: '链接' }))
+    const { input } = await openLinkDialog()
+    act(() => {
+      input.blur()
+    })
+    fireEvent.keyDown(document, { key: 'Escape' })
     await waitFor(() => expect(screen.queryByRole('dialog', { name: '编辑链接' })).toBeNull())
   })
 })
@@ -700,5 +766,36 @@ describe('体检：表格上下文工具条', () => {
     })
     await new Promise((r) => setTimeout(r, 50))
     expect(screen.queryByRole('toolbar', { name: '表格操作' })).toBeNull()
+  })
+
+  it('提供合并 / 拆分单元格：单格选中时禁用，跨格选中后可合并', async () => {
+    const { editor, menu } = await setupTable()
+    const merge = within(menu).getByRole('button', { name: '合并单元格' }) as HTMLButtonElement
+    const split = within(menu).getByRole('button', { name: '拆分单元格' }) as HTMLButtonElement
+    expect(merge.disabled).toBe(true)
+    expect(split.disabled).toBe(true)
+
+    // 跨格选区（第 1 行前两列）→ 合并可用（anchorCell/headCell 为单元格起始位置）
+    const cellPositions: number[] = []
+    editor.state.doc.descendants((node, pos) => {
+      if (node.type.name === 'tableCell' || node.type.name === 'tableHeader') {
+        cellPositions.push(pos)
+      }
+    })
+    expect(cellPositions.length).toBeGreaterThanOrEqual(2)
+    const [firstCell, secondCell] = cellPositions
+    act(() => {
+      editor.commands.setCellSelection({
+        anchorCell: firstCell!,
+        headCell: secondCell!,
+      })
+    })
+    await waitFor(() => {
+      expect(
+        (within(menu).getByRole('button', { name: '合并单元格' }) as HTMLButtonElement).disabled,
+      ).toBe(false)
+    })
+    await userEvent.click(merge)
+    await waitFor(() => expect(editor.getHTML()).toContain('colspan="2"'))
   })
 })

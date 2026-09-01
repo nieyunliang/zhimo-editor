@@ -24,7 +24,13 @@
   --zm-bg-hover: #f3f4f6;
   --zm-bg-active: #eef2ff;
   --zm-danger: #dc2626;
+  --zm-danger-soft: #fef2f2;
+  --zm-code: #d63384;
+  --zm-codeblock-bg: #0f172a;
+  --zm-codeblock-text: #e2e8f0;
+  --zm-shadow: 0 4px 16px rgba(15, 23, 42, 0.12), 0 1px 3px rgba(15, 23, 42, 0.08);
   --zm-radius: 8px;
+  --zm-min-height: 240px; /* 编辑区最小高度（使用方可覆盖） */
   --zm-font:
     'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', system-ui,
     -apple-system, sans-serif;
@@ -40,15 +46,72 @@
   border-radius: var(--zm-radius);
   line-height: 1.75;
   text-align: left;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ===== 深色主题 =====
+   深色调色板通过两处生效（token 列表一致，仅覆盖颜色 token，布局 token 不重复）：
+   1. `.zhimo-editor[data-theme='dark']`            —— 无论系统明暗，强制深色；
+   2. `@media (prefers-color-scheme: dark)` 下的 `.zhimo-editor:not([data-theme='light'])`
+      —— 跟随系统（覆盖 theme='system' 与缺省；明暗切换由浏览器即时重排，无需 JS）。
+   使用方仍可覆盖 `.zhimo-editor[data-theme='dark']` 或对应 `--zm-*` 变量进一步定制深色。 */
+.zhimo-editor[data-theme='dark'] {
+  color-scheme: dark; /* 深色下原生滚动条/控件跟随深色 */
+  --zm-primary: #3b82f6;
+  --zm-primary-hover: #60a5fa;
+  --zm-primary-soft: #1e2a4a;
+  --zm-text: #e5e7eb;
+  --zm-text-secondary: #9ca3af;
+  --zm-text-muted: #6b7280;
+  --zm-border: #374151;
+  --zm-border-strong: #4b5563;
+  --zm-bg: #1f2937;
+  --zm-bg-hover: #374151;
+  --zm-bg-active: #1e2a4a;
+  --zm-danger: #f87171;
+  --zm-danger-soft: #3a1717;
+  --zm-code: #f472b6;
+  --zm-codeblock-bg: #0b1220;
+  --zm-codeblock-text: #cbd5e1;
+  --zm-shadow: 0 4px 16px rgba(0, 0, 0, 0.45), 0 1px 3px rgba(0, 0, 0, 0.35);
+}
+
+@media (prefers-color-scheme: dark) {
+  .zhimo-editor:not([data-theme='light']) {
+    color-scheme: dark; /* 深色下原生滚动条/控件跟随深色 */
+    --zm-primary: #3b82f6;
+    --zm-primary-hover: #60a5fa;
+    --zm-primary-soft: #1e2a4a;
+    --zm-text: #e5e7eb;
+    --zm-text-secondary: #9ca3af;
+    --zm-text-muted: #6b7280;
+    --zm-border: #374151;
+    --zm-border-strong: #4b5563;
+    --zm-bg: #1f2937;
+    --zm-bg-hover: #374151;
+    --zm-bg-active: #1e2a4a;
+    --zm-danger: #f87171;
+    --zm-danger-soft: #3a1717;
+    --zm-code: #f472b6;
+    --zm-codeblock-bg: #0b1220;
+    --zm-codeblock-text: #cbd5e1;
+    --zm-shadow: 0 4px 16px rgba(0, 0, 0, 0.45), 0 1px 3px rgba(0, 0, 0, 0.35);
+  }
 }
 
 /* ===== 编辑区 ===== */
 .zhimo-editor .tiptap {
   outline: none;
-  min-height: 240px;
+  min-height: var(--zm-min-height);
   padding: 16px 20px;
   caret-color: var(--zm-primary);
   word-break: break-word;
+}
+
+/* 编辑区焦点指示：contenteditable 移除默认 outline 后，用根节点 focus-within 替代 */
+.zhimo-editor:focus-within {
+  border-color: color-mix(in srgb, var(--zm-primary) 50%, var(--zm-border-strong));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--zm-primary) 12%, transparent);
 }
 
 .zhimo-editor .tiptap > * + * {
@@ -108,12 +171,12 @@
   border: 1px solid var(--zm-border);
   border-radius: 4px;
   padding: 0.1em 0.35em;
-  color: #d63384;
+  color: var(--zm-code);
 }
 
 .zhimo-editor .tiptap pre {
-  background: #0f172a;
-  color: #e2e8f0;
+  background: var(--zm-codeblock-bg);
+  color: var(--zm-codeblock-text);
   border-radius: 6px;
   padding: 12px 14px;
   overflow-x: auto;
@@ -235,9 +298,28 @@
   background: var(--zm-bg);
   border: 1px solid var(--zm-border);
   border-radius: var(--zm-radius);
-  box-shadow:
-    0 4px 16px rgba(15, 23, 42, 0.12),
-    0 1px 3px rgba(15, 23, 42, 0.08);
+  box-shadow: var(--zm-shadow);
+}
+
+/* ===== 键盘焦点可见性 =====
+   浏览器默认 outline 在透明背景圆角控件上可读性弱；统一主色焦点环。
+   输入框（.zm-link-input）已有 :focus box-shadow 代替，不再重复描边。 */
+.zhimo-editor :is(
+    .zm-tool-btn,
+    .zm-select-trigger,
+    .zm-dropdown-item,
+    .zm-slash-item,
+    .zm-link-btn,
+    .zm-table-btn
+  ):focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--zm-primary) 55%, transparent);
+  outline-offset: 1px;
+}
+
+/* ===== 触控优化 ===== */
+.zhimo-editor button,
+.zhimo-editor input {
+  touch-action: manipulation; /* 移动端双击缩放延迟 */
 }
 
 /* ===== 工具栏 ===== */
@@ -294,8 +376,8 @@
   white-space: nowrap;
   font-size: 12px;
   line-height: 1;
-  color: #fff;
-  background: #1f2937;
+  color: var(--zm-codeblock-text);
+  background: var(--zm-codeblock-bg);
   border-radius: 4px;
   padding: 5px 8px;
   pointer-events: none;
@@ -304,7 +386,8 @@
   z-index: 10;
 }
 
-.zhimo-editor .zm-tool-btn:hover::after {
+.zhimo-editor .zm-tool-btn:hover::after,
+.zhimo-editor .zm-tool-btn:focus-visible::after {
   opacity: 1;
 }
 
@@ -348,9 +431,7 @@
   background: var(--zm-bg);
   border: 1px solid var(--zm-border);
   border-radius: var(--zm-radius);
-  box-shadow:
-    0 4px 16px rgba(15, 23, 42, 0.12),
-    0 1px 3px rgba(15, 23, 42, 0.08);
+  box-shadow: var(--zm-shadow);
   z-index: 20;
 }
 
@@ -469,6 +550,7 @@
   min-width: 220px;
   max-height: 320px;
   overflow-y: auto;
+  overscroll-behavior: contain; /* 滚到列表顶/底不带动页面滚动 */
   padding: 6px;
 }
 
@@ -595,8 +677,14 @@
   color: var(--zm-text);
 }
 
+.zhimo-editor .zm-table-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  background: transparent;
+}
+
 .zhimo-editor .zm-table-btn-danger:hover {
-  background: #fef2f2;
+  background: var(--zm-danger-soft);
   color: var(--zm-danger);
 }
 
@@ -608,7 +696,7 @@
 /* ===== 错误提示条 ===== */
 .zhimo-editor .zm-editor-error {
   border-top: 1px solid color-mix(in srgb, var(--zm-danger) 30%, transparent);
-  background: #fef2f2;
+  background: var(--zm-danger-soft);
   color: var(--zm-danger);
   font-size: 12.5px;
   padding: 6px 14px;
@@ -622,7 +710,7 @@
     linear-gradient(
         90deg,
         var(--zm-bg-hover) 25%,
-        #e5e7eb 37%,
+        var(--zm-border) 37%,
         var(--zm-bg-hover) 63%
       )
       0 0 / 400% 100% no-repeat;
@@ -649,7 +737,7 @@
   height: 10px;
   border-radius: 2px;
   background: var(--zm-primary);
-  border: 2px solid #fff;
+  border: 2px solid var(--zm-bg);
   box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.15);
   z-index: 1;
   /* 默认隐藏：悬停图片或拖拽中显示 */
@@ -670,4 +758,17 @@
 .zhimo-editor .tiptap [data-resize-handle='bottom-left'],
 .zhimo-editor .tiptap [data-resize-handle='top-right'] {
   cursor: nesw-resize;
+}
+
+/* ===== 减少动效：尊重系统偏好 ===== */
+@media (prefers-reduced-motion: reduce) {
+  .zhimo-editor .tiptap img[data-uploading='true'] {
+    animation: none;
+  }
+
+  .zhimo-editor .zm-tool-btn,
+  .zhimo-editor .zm-tool-btn::after,
+  .zhimo-editor .tiptap [data-resize-handle] {
+    transition: none;
+  }
 }

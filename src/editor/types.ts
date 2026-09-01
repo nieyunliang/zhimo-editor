@@ -28,8 +28,18 @@ export interface ZhimoEditorProps {
   onChange?: (content: string) => void
   /** 占位符，默认「请输入内容…」 */
   placeholder?: string
+  /** 编辑区可访问名称（aria-label），默认「编辑器」 */
+  editorAriaLabel?: string
   /** 只读模式 */
   disabled?: boolean
+  /**
+   * 主题模式，默认 'system'（跟随系统浅色/深色）。
+   * - 'system'：跟随操作系统配色（纯 CSS prefers-color-scheme，明暗切换即时生效）
+   * - 'light'：强制浅色
+   * - 'dark'：强制深色
+   * 根节点会带上 `data-theme={theme}`，供样式与外部页面联动。
+   */
+  theme?: 'light' | 'dark' | 'system'
   /**
    * 图片上传回调，返回图片 URL。
    * 提供后粘贴/拖拽/面板上传均走自定义上传；未提供时使用内置
