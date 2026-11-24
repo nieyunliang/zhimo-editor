@@ -191,3 +191,65 @@ describe('ZhimoEditor 斜杠菜单', () => {
     expect(labels.some((l) => l?.includes('表格'))).toBe(false)
   })
 })
+
+describe('ZhimoEditor 受控值回调', () => {
+  const settle = () => act(() => new Promise((r) => setTimeout(r, 20)))
+
+  it.each([
+    ['空串', { value: '' }],
+    ['HTML', { value: '<p>你好</p>' }],
+    ['非受控', { defaultValue: '<p>你好</p>' }],
+    ['JSON', { value: '', format: 'json' as const }],
+    ['禁用', { value: '<p>你好</p>', disabled: true }],
+    ['以标题结尾', { value: '<h1>标题</h1>' }],
+  ])('挂载时不触发 onChange（%s）', async (_, props) => {
+    const onChange = vi.fn()
+    const { getEditor } = renderEditor({ ...props, onChange })
+    await editorReady(getEditor)
+    await settle()
+    expect(onChange).not.toHaveBeenCalled()
+  })
+
+  it('切换 disabled 不触发 onChange', async () => {
+    const onChange = vi.fn()
+    let editor: Editor | null = null
+    const { rerender } = render(
+      <ZhimoEditor value="<p>a</p>" onChange={onChange} onCreate={(e) => (editor = e)} />,
+    )
+    await editorReady(() => editor)
+    rerender(<ZhimoEditor value="<p>a</p>" disabled onChange={onChange} />)
+    await settle()
+    expect(editor!.isEditable).toBe(false)
+    rerender(<ZhimoEditor value="<p>a</p>" onChange={onChange} />)
+    await settle()
+    expect(editor!.isEditable).toBe(true)
+    expect(onChange).not.toHaveBeenCalled()
+  })
+
+  it.each(['html', 'json'] as const)('清空内容后回调空串（%s），与 value="" 对称', async (format) => {
+    const onChange = vi.fn()
+    const initial =
+      format === 'json'
+        ? JSON.stringify({ type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'x' }] }] })
+        : '<p>x</p>'
+    const { getEditor } = renderEditor({ format, defaultValue: initial, onChange })
+    const editor = await editorReady(getEditor)
+    act(() => {
+      editor.commands.clearContent(true)
+    })
+    await waitFor(() => expect(onChange).toHaveBeenCalled())
+    expect(onChange.mock.calls.at(-1)![0]).toBe('')
+  })
+
+  it('空标题等非默认空结构不会被序列化为空串', async () => {
+    const onChange = vi.fn()
+    const { getEditor } = renderEditor({ onChange })
+    const editor = await editorReady(getEditor)
+    act(() => {
+      editor.commands.setHeading({ level: 1 })
+    })
+    await waitFor(() => expect(onChange).toHaveBeenCalled())
+    // StarterKit 的 TrailingNode 会在标题后补一个空段落
+    expect(onChange.mock.calls.at(-1)![0]).toBe('<h1></h1><p></p>')
+  })
+})

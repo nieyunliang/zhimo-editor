@@ -17,8 +17,29 @@ function parseContent(content: string | undefined, format: ContentFormat) {
   return content
 }
 
-/** 按 format 序列化编辑器内容 */
+/**
+ * 是否为「空文档」：仅含一个无内容的段落（即 '' 解析后的默认文档）。
+ * 刻意不用 editor.isEmpty —— 它会把空标题、空列表、空表格等也视为空，
+ * 序列化成 '' 会丢失这些结构。
+ */
+function isBlankDoc(editor: Editor): boolean {
+  const { doc } = editor.state
+  const first = doc.firstChild
+  return (
+    doc.childCount === 1 &&
+    first !== null &&
+    first.type.name === 'paragraph' &&
+    first.childCount === 0
+  )
+}
+
+/**
+ * 按 format 序列化编辑器内容。
+ * 空文档统一输出 ''，与 parseContent 把 '' 读作空文档对称，
+ * 保证受控模式下 value='' 往返一致（否则会得到 '<p></p>' / 空段落 JSON）。
+ */
 function serializeContent(editor: Editor, format: ContentFormat): string {
+  if (isBlankDoc(editor)) return ''
   if (format === 'json') return JSON.stringify(editor.getJSON())
   return editor.getHTML()
 }
@@ -90,9 +111,14 @@ export function useZhimoEditor(props: ZhimoEditorProps): Editor | null {
     })
   }, [editor, value, format])
 
-  // 禁用态动态切换
+  // 禁用态动态切换。
+  // setEditable 第二参数 emitUpdate 默认为 true，会无条件 emit('update')
+  // 从而触发 onChange —— 挂载时这个 effect 必定执行一次，导致用户未编辑
+  // 就回调 onChange。可编辑状态不是内容变化，这里必须显式关掉。
   useEffect(() => {
-    editor?.setEditable(!disabled)
+    if (!editor || editor.isDestroyed) return
+    if (editor.isEditable === !disabled) return
+    editor.setEditable(!disabled, false)
   }, [editor, disabled])
 
   return editor
